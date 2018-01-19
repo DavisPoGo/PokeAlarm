@@ -489,29 +489,28 @@ class Manager(object):
             passed = f.check_event(mon) and self.check_geofences(f, mon)
             if passed:  # Stop checking
                 mon.custom_dts = f.custom_dts
-                break
-        if not passed:  # Monster was rejected by all filters
-            return
+                # Generate the DTS for the event
+                dts = mon.generate_dts(self.__locale, self.__timezone, self.__units)
 
-        # Generate the DTS for the event
-        dts = mon.generate_dts(self.__locale, self.__timezone, self.__units)
+                if self.__loc_service:
+                    self.__loc_service.add_optional_arguments(
+                        self.__location, [mon.lat, mon.lng], dts)
 
-        if self.__loc_service:
-            self.__loc_service.add_optional_arguments(
-                self.__location, [mon.lat, mon.lng], dts)
+                if self.__quiet is False:
+                    log.info("{} monster notification has been triggered!".format(
+                        mon.name))
 
-        if self.__quiet is False:
-            log.info("{} monster notification has been triggered!".format(
-                mon.name))
+                threads = []
+                # Spawn notifications in threads so they can work in background
+                for alarm in self.__alarms:
+                    threads.append(gevent.spawn(alarm.pokemon_alert, dts))
+                gevent.sleep(0)  # explict context yield
 
-        threads = []
-        # Spawn notifications in threads so they can work in background
-        for alarm in self.__alarms:
-            threads.append(gevent.spawn(alarm.pokemon_alert, dts))
-        gevent.sleep(0)  # explict context yield
+                for thread in threads:
+                    thread.join()
+        return
 
-        for thread in threads:
-            thread.join()
+        
 
     def process_stop(self, stop):
         # type: (Events.StopEvent) -> None
