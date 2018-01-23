@@ -38,9 +38,11 @@ class WeatherEvent(BaseEvent):
 
         self.name = self.weather_cell_id
         self.geofence = Unknown.REGULAR
+        self.geofence_list = []
         self.custom_dts = {}
+        self.api_key = Unknown.REGULAR
 
-    def generate_dts(self, locale):
+    def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
         time_changed = get_time_as_str(self.time_changed)
         dts = self.custom_dts.copy()
@@ -55,8 +57,10 @@ class WeatherEvent(BaseEvent):
 
             # Location
             'coords': self.coords,
+            'api_key': self.api_key,
 
             'geofence': self.geofence,
+            'geofence_list': self.geofence_list,
 
             # Weather info
             'condition': self.condition,

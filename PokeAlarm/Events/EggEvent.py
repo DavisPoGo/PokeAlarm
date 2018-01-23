@@ -55,7 +55,9 @@ class EggEvent(BaseEvent):
 
         self.name = self.gym_id
         self.geofence = Unknown.REGULAR
+        self.geofence_list = []
         self.custom_dts = {}
+        self.api_key = Unknown.REGULAR
 
     def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
@@ -87,6 +89,8 @@ class EggEvent(BaseEvent):
             'gmaps': get_gmaps_link(self.lat, self.lng),
             'applemaps': get_applemaps_link(self.lat, self.lng),
             'geofence': self.geofence,
+            'geofence_list': self.geofence_list,
+            'api_key': self.api_key,
             'weather_id': self.weather_id,
             'weather': weather_name,
             'weather_or_empty': Unknown.or_empty(weather_name),

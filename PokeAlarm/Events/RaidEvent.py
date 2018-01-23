@@ -73,7 +73,9 @@ class RaidEvent(BaseEvent):
 
         self.name = self.gym_id
         self.geofence = Unknown.REGULAR
+        self.geofence_list = []
         self.custom_dts = {}
+        self.api_key = Unknown.REGULAR
 
     def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
@@ -124,10 +126,12 @@ class RaidEvent(BaseEvent):
             'gmaps': get_gmaps_link(self.lat, self.lng),
             'applemaps': get_applemaps_link(self.lat, self.lng),
             'geofence': self.geofence,
+            'geofence_list': self.geofence_list,
             'weather_id': self.weather_id,
             'weather': weather_name,
             'weather_or_empty': Unknown.or_empty(weather_name),
             'weather_emoji': get_weather_emoji(self.weather_id),
+            'api_key': self.api_key,
             'boosted_weather_id': boosted_weather,
             'boosted_weather': boosted_weather_name,
             'boosted_weather_or_empty': Unknown.or_empty(boosted_weather_name),

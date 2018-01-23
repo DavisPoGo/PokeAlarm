@@ -16,7 +16,8 @@ whtypes = {
     "2": "pokestop",
     "3": "gym",
     "4": "egg",
-    "5": "raid"
+    "5": "raid",
+    "6": "weather"
 }
 
 teams = {
@@ -150,6 +151,20 @@ def set_init(webhook_type):
                 "level": 5,
                 "latitude": 37.7876146,
                 "longitude": -122.390624
+                "weather": 0
+            }
+        }
+    elif webhook_type == whtypes["6"]:
+        payloadr = {
+            "type": "weather",
+            "message": {
+                "s2_cell_id": 0,
+                'time_changed': current_time,
+                'coords': [[38.25522067755094,-122.08374449567627],[38.179280284460866,-122.08374449567626],[38.20693488934502,-121.99280779590266],[38.282892940885574,-121.99280779590266]],
+                'condition': 1,
+                'alert_severity': 0,
+                'warn': 1,
+                'day': 1,
             }
         }
 

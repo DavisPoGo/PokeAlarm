@@ -30,7 +30,7 @@ log = logging.getLogger('Manager')
 class Manager(object):
     def __init__(self, name, google_key, locale, units, timezone, time_limit,
                  max_attempts, location, quiet, cache_type, filter_file,
-                 geofence_file, alarm_file, debug):
+                 geofence_file, alarm_file, debug, api_key_file):
         # Set the name of the Manager
         self.__name = str(name).lower()
         log.info("----------- Manager '{}' ".format(self.__name)
@@ -81,6 +81,11 @@ class Manager(object):
         self.geofences = None
         if str(geofence_file).lower() != 'none':
             self.geofences = load_geofence_file(get_path(geofence_file))
+
+        # Load in the file to get discord API key from geofence/filter-set
+        self.api_key = {}
+        self.load_api_key_file(get_path(api_key_file))
+
         # Create the alarms to send notifications out with
         self.__alarms = []
         self.load_alarms_file(get_path(alarm_file), int(max_attempts))
@@ -259,6 +264,37 @@ class Manager(object):
                       + " exists and PA has read permissions.")
         except Exception as e:
             log.error("Encountered error while loading Alarms: "
+                      + "{}: {}".format(type(e).__name__, e))
+        log.debug("Stack trace: \n {}".format(traceback.format_exc()))
+        sys.exit(1)
+
+    def load_api_key_file(self, file_path):
+        log.info("Loading API keys from the file at {}".format(file_path))
+        try:
+            with open(file_path, 'r') as f:
+                self.api_key = json.load(f)
+            if type(self.api_key) is not dict:
+                log.critical("API key file must be a dict objects "
+                             + "- { {...}, {...}, ... {...} }")
+                sys.exit(1)
+            log.info("API Key file found")
+            return  # all done
+        except ValueError as e:
+            log.error("Encountered error while loading Alarms file: "
+                      + "{}: {}".format(type(e).__name__, e))
+            log.error(
+                "PokeAlarm has encountered a 'ValueError' while loading the "
+                + " API key file. This typically means your file isn't in the "
+                + "correct json format. Try loading your file contents into"
+                + " a json validator.")
+        except IOError as e:
+            log.error("Encountered error while loading API key: "
+                      + "{}: {}".format(type(e).__name__, e))
+            log.error("PokeAlarm was unable to find a api key file "
+                      + "at {}. Please check that this file".format(file_path)
+                      + " exists and PA has read permissions.")
+        except Exception as e:
+            log.error("Encountered error while loading api key: "
                       + "{}: {}".format(type(e).__name__, e))
         log.debug("Stack trace: \n {}".format(traceback.format_exc()))
         sys.exit(1)
@@ -485,29 +521,37 @@ class Manager(object):
 
         # Check the Filters
         passed = False
-        for name, f in self.__mon_filters.iteritems():
-            passed = f.check_event(mon) and self.check_geofences(f, mon)
-            if passed:  # Stop checking
-                mon.custom_dts = f.custom_dts
-                # Generate the DTS for the event
-                dts = mon.generate_dts(self.__locale, self.__timezone, self.__units)
+        if self.match_geofences(mon):
+            for name, f in self.__mon_filters.iteritems():
+                passed = f.check_event(mon)
+                if passed:
+                    for geofence_name in mon.geofence_list:
+                        mon.api_key = None
+                        if not self.get_api_key(mon, name, geofence_name):
+                            log.debug("No API key set for {} monster notification for geofence: {}, filter set: {}!".format(
+                                mon.name, geofence_name, name))
+                        else:
+                            mon.custom_dts = f.custom_dts
+                            mon.geofence = geofence_name
+                            # Generate the DTS for the event
+                            dts = mon.generate_dts(self.__locale, self.__timezone, self.__units)
 
-                if self.__loc_service:
-                    self.__loc_service.add_optional_arguments(
-                        self.__location, [mon.lat, mon.lng], dts)
+                            if self.__loc_service:
+                                self.__loc_service.add_optional_arguments(
+                                    self.__location, [mon.lat, mon.lng], dts)
 
-                if self.__quiet is False:
-                    log.info("{} monster notification has been triggered!".format(
-                        mon.name))
+                            if self.__quiet is False:
+                                log.info("{} monster notification has been triggered for geofence: {}, filter set: {}!".format(
+                                    mon.name, geofence_name, name))
 
-                threads = []
-                # Spawn notifications in threads so they can work in background
-                for alarm in self.__alarms:
-                    threads.append(gevent.spawn(alarm.pokemon_alert, dts))
-                gevent.sleep(0)  # explict context yield
+                            threads = []
+                            # Spawn notifications in threads so they can work in background
+                            for alarm in self.__alarms:
+                                threads.append(gevent.spawn(alarm.pokemon_alert, dts))
+                            gevent.sleep(0)  # explict context yield
 
-                for thread in threads:
-                    thread.join()
+                            for thread in threads:
+                                thread.join()
         return
 
         
@@ -682,34 +726,39 @@ class Manager(object):
                 [egg.lat, egg.lng], self.__location)
 
         # Check the Filters
-        passed = True
-        for name, f in self.__egg_filters.iteritems():
-            passed = f.check_event(egg) and self.check_geofences(f, egg)
-            if passed:  # Stop checking
-                egg.custom_dts = f.custom_dts
-                break
-        if not passed:  # Egg was rejected by all filters
-            return
+        passed = False
+        if self.match_geofences(egg):
+            for name, f in self.__egg_filters.iteritems():
+                passed = f.check_event(egg)
+                if passed:
+                    for geofence_name in egg.geofence_list:
+                        egg.api_key = None
+                        if not self.get_api_key(egg, name, geofence_name):
+                            log.debug("No API key set for {} egg notification for geofence: {}, filter set: {}!".format(
+                                egg.name, geofence_name, name))
+                        else:
+                            egg.custom_dts = f.custom_dts
+                            egg.geofence = geofence_name
+                            # Generate the DTS for the event
+                            dts = egg.generate_dts(self.__locale, self.__timezone, self.__units)
 
-        # Generate the DTS for the event
-        dts = egg.generate_dts(self.__locale, self.__timezone, self.__units)
-        dts.update(self.__cache.get_gym_info(egg.gym_id))  # update gym info
-        if self.__loc_service:
-            self.__loc_service.add_optional_arguments(
-                self.__location, [egg.lat, egg.lng], dts)
+                            if self.__loc_service:
+                                self.__loc_service.add_optional_arguments(
+                                    self.__location, [egg.lat, egg.lng], dts)
 
-        if self.__quiet is False:
-            log.info(
-                "{} egg notification has been triggered!".format(egg.gym_name))
+                            if self.__quiet is False:
+                                log.info("{} egg notification has been triggered for geofence: {}, filter set: {}!".format(
+                                    egg.name, geofence_name, name))
 
-        threads = []
-        # Spawn notifications in threads so they can work in background
-        for alarm in self.__alarms:
-            threads.append(gevent.spawn(alarm.raid_egg_alert, dts))
-        gevent.sleep(0)  # explict context yield
+                            threads = []
+                            # Spawn notifications in threads so they can work in background
+                            for alarm in self.__alarms:
+                                threads.append(gevent.spawn(alarm.raid_egg_alert, dts))
+                            gevent.sleep(0)  # explict context yield
 
-        for thread in threads:
-            thread.join()
+                            for thread in threads:
+                                thread.join()
+        return
 
     def process_raid(self, raid):
         # type: (Events.RaidEvent) -> None
@@ -752,34 +801,39 @@ class Manager(object):
                 [raid.lat, raid.lng], self.__location)
 
         # Check the Filters
-        passed = True
-        for name, f in self.__raid_filters.iteritems():
-            passed = f.check_event(raid) and self.check_geofences(f, raid)
-            if passed:  # Stop checking
-                raid.custom_dts = f.custom_dts
-                break
-        if not passed:  # Raid was rejected by all filters
-            return
+        passed = False
+        if self.match_geofences(raid):
+            for name, f in self.__raid_filters.iteritems():
+                passed = f.check_event(raid)
+                if passed:
+                    for geofence_name in raid.geofence_list:
+                        raid.api_key = None
+                        if not self.get_api_key(raid, name, geofence_name):
+                            log.debug("No API key set for {} raid notification for geofence: {}, filter set: {}!".format(
+                                raid.name, geofence_name, name))
+                        else:
+                            raid.custom_dts = f.custom_dts
+                            raid.geofence = geofence_name
+                            # Generate the DTS for the event
+                            dts = raid.generate_dts(self.__locale, self.__timezone, self.__units)
 
-        # Generate the DTS for the event
-        dts = raid.generate_dts(self.__locale, self.__timezone, self.__units)
-        dts.update(self.__cache.get_gym_info(raid.gym_id))  # update gym info
-        if self.__loc_service:
-            self.__loc_service.add_optional_arguments(
-                self.__location, [raid.lat, raid.lng], dts)
+                            if self.__loc_service:
+                                self.__loc_service.add_optional_arguments(
+                                    self.__location, [raid.lat, raid.lng], dts)
 
-        if self.__quiet is False:
-            log.info(
-                "{} raid notification triggered!".format(raid.gym_name))
+                            if self.__quiet is False:
+                                log.info("{} raid notification has been triggered for geofence: {}, filter set: {}!".format(
+                                    raid.name, geofence_name, name))
 
-        threads = []
-        # Spawn notifications in threads so they can work in background
-        for alarm in self.__alarms:
-            threads.append(gevent.spawn(alarm.raid_alert, dts))
-        gevent.sleep(0)  # explict context yield
+                            threads = []
+                            # Spawn notifications in threads so they can work in background
+                            for alarm in self.__alarms:
+                                threads.append(gevent.spawn(alarm.raid_alert, dts))
+                            gevent.sleep(0)  # explict context yield
 
-        for thread in threads:
-            thread.join()
+                            for thread in threads:
+                                thread.join()
+        return
 
     def process_weather(self, weather):
         # type: (Events.WeatherEvent) -> None
@@ -801,31 +855,39 @@ class Manager(object):
             weather.weather_cell_id, weather.condition)
 
         # Check the Filters
-        passed = True
-        for name, f in self.__weather_filters.iteritems():
-            passed = f.check_event(weather) and \
-                self.check_weather_geofences(f, weather)
-            if passed:  # Stop checking
-                weather.custom_dts = f.custom_dts
-                break
-        if not passed:  # Weather was rejected by all filters
-            return
+        passed = False
+        if self.match_weather_geofences(weather):
+            for name, f in self.__weather_filters.iteritems():
+                passed = f.check_event(weather)
+                if passed:
+                    for geofence_name in weather.geofence_list:
+                        weather.api_key = None
+                        if not self.get_api_key(weather, name, geofence_name):
+                            log.debug("No API key set for {} weather notification for geofence: {}, filter set: {}!".format(
+                                weather.name, geofence_name, name))
+                        else:
+                            weather.custom_dts = f.custom_dts
+                            weather.geofence = geofence_name
+                            # Generate the DTS for the event
+                            dts = weather.generate_dts(self.__locale, self.__timezone, self.__units)
 
-        # Generate the DTS for the event
-        dts = weather.generate_dts(self.__locale)
+                            if self.__quiet is False:
+                                log.info("{} weather notification has been triggered for geofence: {}, filter set: {}!".format(
+                                    weather.name, geofence_name, name))
 
-        if self.__quiet is False:
-            log.info("{} weather notification triggered!".format(
-                weather.weather_cell_id))
+                            threads = []
+                            # Spawn notifications in threads so they can work in background
+                            for alarm in self.__alarms:
+                                threads.append(gevent.spawn(alarm.weather_alert, dts))
+                            gevent.sleep(0)  # explict context yield
 
-        threads = []
-        # Spawn notifications in threads so they can work in background
-        for alarm in self.__alarms:
-            threads.append(gevent.spawn(alarm.weather_alert, dts))
-        gevent.sleep(0)  # explict context yield
+                            for thread in threads:
+                                thread.join()
+        return
 
-        for thread in threads:
-            thread.join()
+
+
+
 
     # Check to see if a notification is within the given range
     def check_geofences(self, f, e):
@@ -849,9 +911,32 @@ class Manager(object):
         f.reject(e, "not in geofences")
         return False
 
+    # Check to see if a notification is within the given range
+    def match_geofences(self, e):
+        """ Returns true if the event passes the filter's geofences. """
+        if self.geofences is None:  # No geofences set (Improve here)
+            return False
+        targets = self.geofences.iterkeys() #check all geofence to see if it includes event
+        for name in targets:
+            gf = self.geofences.get(name)
+            if not gf:  # gf doesn't exist
+                log.error("Cannot check geofence %s: does not exist!", name)
+            elif gf.contains(e.lat, e.lng):  # e in gf
+                gf_name = gf.get_name()
+                log.debug("{} is in geofence {}!".format(
+                    e.name, gf_name))
+                e.geofence_list.append(gf_name)  # Set the geofence for dts
+                if "-" in gf_name and gf_name.split('-')[0] not in e.geofence_list:
+                    e.geofence_list.append(gf_name.split('-')[0])
+            else:  # e not in gf
+                log.debug("%s not in %s.", e.name, name)
+        if not e.geofence_list:
+            return False
+        else:
+            e.geofence_list.append('All')
+        return True
 
-# Check to see if a weather notification s2 cell
-# overlaps with a given range (geofence)
+# Check to see if a weather notification s2 cell overlaps with a given range (geofence)
     def check_weather_geofences(self, f, weather):
         """ Returns true if the event passes the filter's geofences. """
         if self.geofences is None or f.geofences is None:  # No geofences set
@@ -872,4 +957,40 @@ class Manager(object):
                 log.debug("%s not in %s.", weather.weather_cell_id, name)
         f.reject(weather, "not in geofences")
         return False
+
+    def match_weather_geofences(self, e):
+        """ Returns true if the event passes the filter's geofences. """
+        if self.geofences is None:  # No geofences set (Improve here)
+            return False
+        targets = self.geofences.iterkeys() #check all geofence to see if it includes event
+        for name in targets:
+            gf = self.geofences.get(name)
+            if not gf:  # gf doesn't exist
+                log.error("Cannot check geofence %s: does not exist!", name)
+            elif gf.check_overlap(e):  # e in gf
+                gf_name = gf.get_name()
+                log.debug("{} is in geofence {}!".format(
+                    e.name, gf_name))
+                e.geofence_list.append(gf_name)  # Set the geofence for dts
+                if "-" in gf_name and gf_name.split('-')[0] not in e.geofence_list:
+                    e.geofence_list.append(gf_name.split('-')[0])
+            else:  # e not in gf
+                log.debug("%s not in %s.", e.name, name)
+        if not e.geofence_list:
+            return False
+        else:
+            e.geofence_list.append('All')
+        return True
+
+    def get_api_key(self, e, filter_name, geofence_name):
+        try:
+            api_filter_name = filter_name.split('-')[0]
+            e.api_key = self.api_key[geofence_name][api_filter_name]
+            return True
+        except KeyError:
+            log.debug("error in geofence: %s filter: %s.", geofence_name, api_filter_name)
+            return False
+
+
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
