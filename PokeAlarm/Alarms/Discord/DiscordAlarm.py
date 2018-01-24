@@ -3,7 +3,7 @@ import logging
 import requests
 
 # 3rd Party Imports
-
+import itertools
 # Local Imports
 from PokeAlarm.Alarms import Alarm
 from PokeAlarm.Utils import parse_boolean, get_static_map_url, \
@@ -103,7 +103,7 @@ class DiscordAlarm(Alarm):
             settings.pop('disable_embed', "False"))
         self.__avatar_url = settings.pop('avatar_url', "")
         self.__map = settings.pop('map', {})
-        self.__static_map_key = static_map_key
+        self.__static_map_key = itertools.cycle(static_map_key)
 
         # Set Alert Parameters
         self.__pokemon = self.create_alert_settings(
@@ -147,10 +147,10 @@ class DiscordAlarm(Alarm):
     def create_alert_settings(self, settings, default, kind):
         if kind == 'weather':
             static_map = get_static_weather_map_url(
-                settings.pop('map', self.__map), self.__static_map_key)
+                        settings.pop('map', self.__map), next(self.__static_map_key))
         else:
             static_map = get_static_map_url(
-                settings.pop('map', self.__map), self.__static_map_key)
+                        settings.pop('map', self.__map), next(self.__static_map_key))
         alert = {
             'webhook_url': settings.pop('webhook_url', self.__webhook_url),
             'username': settings.pop('username', default['username']),
