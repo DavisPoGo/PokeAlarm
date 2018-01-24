@@ -527,8 +527,9 @@ class Manager(object):
                             log.debug("No API key set for {} monster notification for geofence: {}, filter set: {}!".format(
                                 mon.name, geofence_name, name))
                         else:
+                            mon.geofence = mon.geofence_list[0] if geofence_name not in self.geofences.iterkeys() else geofence_name
                             mon.custom_dts = f.custom_dts
-                            mon.geofence = geofence_name
+                            
                             # Generate the DTS for the event
                             dts = mon.generate_dts(self.__locale, self.__timezone, self.__units)
 
@@ -733,8 +734,9 @@ class Manager(object):
                             log.debug("No API key set for {} egg notification for geofence: {}, filter set: {}!".format(
                                 egg.name, geofence_name, name))
                         else:
+                            egg.geofence = egg.geofence_list[0] if geofence_name not in self.geofences.iterkeys() else geofence_name
+
                             egg.custom_dts = f.custom_dts
-                            egg.geofence = geofence_name
                             # Generate the DTS for the event
                             dts = egg.generate_dts(self.__locale, self.__timezone, self.__units)
 
@@ -809,7 +811,7 @@ class Manager(object):
                                 raid.name, geofence_name, name))
                         else:
                             raid.custom_dts = f.custom_dts
-                            raid.geofence = geofence_name
+                            raid.geofence = raid.geofence_list[0] if geofence_name not in self.geofences.iterkeys() else geofence_name
                             # Generate the DTS for the event
                             dts = raid.generate_dts(self.__locale, self.__timezone, self.__units)
 
@@ -863,7 +865,7 @@ class Manager(object):
                                 weather.name, geofence_name, name))
                         else:
                             weather.custom_dts = f.custom_dts
-                            weather.geofence = geofence_name
+                            weather.geofence = weather.geofence_list[0] if geofence_name not in self.geofences.iterkeys() else geofence_name
                             # Generate the DTS for the event
                             dts = weather.generate_dts(self.__locale, self.__timezone, self.__units)
 
@@ -912,8 +914,7 @@ class Manager(object):
         """ Returns true if the event passes the filter's geofences. """
         if self.geofences is None:  # No geofences set (Improve here)
             return False
-        targets = self.geofences.iterkeys() #check all geofence to see if it includes event
-        for name in targets:
+        for name in self.geofences.iterkeys():
             gf = self.geofences.get(name)
             if not gf:  # gf doesn't exist
                 log.error("Cannot check geofence %s: does not exist!", name)
@@ -933,7 +934,7 @@ class Manager(object):
         return True
 
 # Check to see if a weather notification s2 cell overlaps with a given range (geofence)
-    def check_weather_geofences(self, f, weather):
+    def check_weather_geofences(self, f, e):
         """ Returns true if the event passes the filter's geofences. """
         if self.geofences is None or f.geofences is None:  # No geofences set
             return True
@@ -944,22 +945,21 @@ class Manager(object):
             gf = self.geofences.get(name)
             if not gf:  # gf doesn't exist
                 log.error("Cannot check geofence %s: does not exist!", name)
-            elif gf.check_overlap(weather):  # weather cell overlaps gf
+            elif gf.check_overlap(e):  # weather cell overlaps gf
                 log.debug("{} is in geofence {}!".format(
-                    weather.weather_cell_id, gf.get_name()))
-                weather.geofence = name  # Set the geofence for dts
+                    e.weather_cell_id, gf.get_name()))
+                e.geofence = name  # Set the geofence for dts
                 return True
             else:  # weather not in gf
-                log.debug("%s not in %s.", weather.weather_cell_id, name)
-        f.reject(weather, "not in geofences")
+                log.debug("%s not in %s.", e.weather_cell_id, name)
+        f.reject(e, "not in geofences")
         return False
 
     def match_weather_geofences(self, e):
         """ Returns true if the event passes the filter's geofences. """
         if self.geofences is None:  # No geofences set (Improve here)
             return False
-        targets = self.geofences.iterkeys() #check all geofence to see if it includes event
-        for name in targets:
+        for name in self.geofences.iterkeys():
             gf = self.geofences.get(name)
             if not gf:  # gf doesn't exist
                 log.error("Cannot check geofence %s: does not exist!", name)
