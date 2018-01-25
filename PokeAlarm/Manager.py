@@ -31,7 +31,7 @@ log = logging.getLogger('Manager')
 class Manager(object):
     def __init__(self, name, google_key, locale, units, timezone, time_limit,
                  max_attempts, location, quiet, cache_type, filter_file,
-                 geofence_file, alarm_file, debug, api_key_file):
+                 geofence_file, alarm_file, debug, channel_id_file):
         # Set the name of the Manager
         self.__name = str(name).lower()
         log.info("----------- Manager '{}' ".format(self.__name)
@@ -79,8 +79,8 @@ class Manager(object):
             self.geofences = load_geofence_file(get_path(geofence_file))
 
         # Load in the file to get discord API key from geofence/filter-set
-        self.api_key = {}
-        self.load_api_key_file(get_path(api_key_file))
+        self.channel_id = {}
+        self.load_channel_id_file(get_path(channel_id_file))
 
         # Create the alarms to send notifications out with
         self.__alarms = []
@@ -264,12 +264,12 @@ class Manager(object):
         log.debug("Stack trace: \n {}".format(traceback.format_exc()))
         sys.exit(1)
 
-    def load_api_key_file(self, file_path):
+    def load_channel_id_file(self, file_path):
         log.info("Loading API keys from the file at {}".format(file_path))
         try:
             with open(file_path, 'r') as f:
-                self.api_key = json.load(f)
-            if type(self.api_key) is not dict:
+                self.channel_id = json.load(f)
+            if type(self.channel_id) is not dict:
                 log.critical("API key file must be a dict objects "
                              + "- { {...}, {...}, ... {...} }")
                 sys.exit(1)
@@ -522,8 +522,8 @@ class Manager(object):
                 passed = f.check_event(mon)
                 if passed:
                     for geofence_name in mon.geofence_list:
-                        mon.api_key = None
-                        if not self.get_api_key(mon, name, geofence_name):
+                        mon.channel_id = None
+                        if not self.get_channel_id(mon, name, geofence_name):
                             log.debug("No API key set for {} monster notification for geofence: {}, filter set: {}!".format(
                                 mon.name, geofence_name, name))
                         else:
@@ -729,8 +729,8 @@ class Manager(object):
                 passed = f.check_event(egg)
                 if passed:
                     for geofence_name in egg.geofence_list:
-                        egg.api_key = None
-                        if not self.get_api_key(egg, name, geofence_name):
+                        egg.channel_id = None
+                        if not self.get_channel_id(egg, name, geofence_name):
                             log.debug("No API key set for {} egg notification for geofence: {}, filter set: {}!".format(
                                 egg.name, geofence_name, name))
                         else:
@@ -805,8 +805,8 @@ class Manager(object):
                 passed = f.check_event(raid)
                 if passed:
                     for geofence_name in raid.geofence_list:
-                        raid.api_key = None
-                        if not self.get_api_key(raid, name, geofence_name):
+                        raid.channel_id = None
+                        if not self.get_channel_id(raid, name, geofence_name):
                             log.debug("No API key set for {} raid notification for geofence: {}, filter set: {}!".format(
                                 raid.name, geofence_name, name))
                         else:
@@ -859,8 +859,8 @@ class Manager(object):
                 passed = f.check_event(weather)
                 if passed:
                     for geofence_name in weather.geofence_list:
-                        weather.api_key = None
-                        if not self.get_api_key(weather, name, geofence_name):
+                        weather.channel_id = None
+                        if not self.get_channel_id(weather, name, geofence_name):
                             log.debug("No API key set for {} weather notification for geofence: {}, filter set: {}!".format(
                                 weather.name, geofence_name, name))
                         else:
@@ -978,10 +978,10 @@ class Manager(object):
             e.geofence_list.append('All')
         return True
 
-    def get_api_key(self, e, filter_name, geofence_name):
+    def get_channel_id(self, e, filter_name, geofence_name):
         try:
             api_filter_name = filter_name.split('-')[0]
-            e.api_key = self.api_key[geofence_name][api_filter_name]
+            e.channel_id = self.channel_id[geofence_name][api_filter_name]
             return True
         except KeyError:
             log.debug("error in geofence: %s filter: %s.", geofence_name, api_filter_name)

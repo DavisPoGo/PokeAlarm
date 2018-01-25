@@ -96,7 +96,7 @@ class MonEvent(BaseEvent):
         self.geofence = Unknown.REGULAR
         self.geofence_list = []
         self.custom_dts = {}
-        self.api_key = Unknown.REGULAR
+        self.channel_id = Unknown.REGULAR
 
     def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
@@ -144,7 +144,7 @@ class MonEvent(BaseEvent):
             'weather_or_empty': Unknown.or_empty(weather_name),
             'weather_emoji': get_weather_emoji(self.weather_id),
             'boosted_weather_id': self.boosted_weather_id,
-            'api_key': self.api_key,
+            'channel_id': self.channel_id,
             'boosted_weather': boosted_weather_name,
             'boosted_weather_or_empty': Unknown.or_empty(boosted_weather_name),
             'boosted_weather_emoji':

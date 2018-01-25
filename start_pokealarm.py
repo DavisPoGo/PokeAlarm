@@ -181,9 +181,9 @@ def parse_settings(root_path):
         '-tz', '--timezone', type=str, action='append', default=[None],
         help='Timezone used for notifications. Ex: "America/Los_Angeles"')
     parser.add_argument(
-        '-api', '--api_key', type=parse_unicode, action='append',
-        default=['api_key.json'],
-        help='Translate Filter set and Geofence to Discord API key. default: api_key.json')
+        '-api', '--channel_id', type=parse_unicode, action='append',
+        default=['channel_id.json'],
+        help='Translate Filter set and Geofence to Discord API key. default: channel_id.json')
 
     args = parser.parse_args()
 
@@ -202,7 +202,7 @@ def parse_settings(root_path):
     # Check to make sure that the same number of arguments are included
     for arg in [args.filters, args.alarms, args.geofences,
                 args.location, args.locale, args.units, args.cache_type,
-                args.timelimit, args.max_attempts, args.timezone, args.api_key]:
+                args.timelimit, args.max_attempts, args.timezone, args.channel_id]:
         if len(arg) > 1:  # Remove defaults from the list
             arg.pop(0)
         size = len(arg)
@@ -254,7 +254,7 @@ def parse_settings(root_path):
                 args.geofences, m_ct, args.geofences[0]),
             alarm_file=get_from_list(args.alarms, m_ct, args.alarms[0]),
             debug=config['DEBUG'],
-            api_key_file=get_from_list(args.api_key, m_ct, args.api_key[0])
+            channel_id_file=get_from_list(args.channel_id, m_ct, args.channel_id[0])
         )
         if m.get_name() not in managers:
             # Add the manager to the map

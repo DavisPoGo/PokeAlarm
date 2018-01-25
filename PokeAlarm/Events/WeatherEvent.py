@@ -40,7 +40,7 @@ class WeatherEvent(BaseEvent):
         self.geofence = Unknown.REGULAR
         self.geofence_list = []
         self.custom_dts = {}
-        self.api_key = Unknown.REGULAR
+        self.channel_id = Unknown.REGULAR
 
     def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
@@ -57,7 +57,7 @@ class WeatherEvent(BaseEvent):
 
             # Location
             'coords': self.coords,
-            'api_key': self.api_key,
+            'channel_id': self.channel_id,
 
             'geofence': self.geofence,
             'geofence_list': self.geofence_list,
