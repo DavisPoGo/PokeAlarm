@@ -39,7 +39,7 @@ class Manager(object):
         self.__debug = debug
 
         # Get the Google Maps API
-        self.__google_key = itertools.cycle(google_key)
+        self.__google_key = google_key
         
         self.__loc_service = location_service_factory(
             "GoogleMaps", self.__google_key, locale, units)

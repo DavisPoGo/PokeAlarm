@@ -359,11 +359,11 @@ def get_static_map_url(settings, api_key=None):  # TODO: optimize formatting
 
     map_ = ('https://maps.googleapis.com/maps/api/staticmap?' +
             query_center + '&' + query_markers + '&' +
-            query_maptype + '&' + query_size + '&' + query_zoom)
+            query_maptype + '&' + query_size + '&' + query_zoom + '&key=<gkey>')
 
-    if api_key is not None:
-        map_ += ('&key=%s' % api_key)
-        log.debug("API_KEY added to static map url.")
+    # if api_key is not None:
+    #     map_ += ('&key=%s' % api_key)
+    #     log.debug("API_KEY added to static map url.")
     return map_
 
 
@@ -385,11 +385,11 @@ def get_static_weather_map_url(settings, api_key=None):
 
     map_ = ('https://maps.googleapis.com/maps/api/staticmap?' +
             query_maptype + '&' + query_size + 
-            '&' + query_zoom + '&' + query_path)
+            '&' + query_zoom + '&' + query_path + '&key=<gkey>')
 
-    if api_key is not None:
-        map_ += ('&key=%s' % api_key)
-        log.debug("API_KEY added to static map url.")
+    # if api_key is not None:
+    #     map_ += ('&key=%s' % api_key)
+    #     log.debug("API_KEY added to static map url.")
     return map_
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

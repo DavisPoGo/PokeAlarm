@@ -6,6 +6,8 @@ import re
 import os
 import portalocker
 import pickle
+from random import randint
+
 
 truthy = frozenset([
     "yes", "Yes", "y", "Y", "true", "True", "TRUE", "YES", "1", "!0"
@@ -162,7 +164,7 @@ def set_init(webhook_type):
                 "s2_cell_id": 0,
                 'time_changed': current_time,
                 'coords': [[38.25522067755094,-122.08374449567627],[38.179280284460866,-122.08374449567626],[38.20693488934502,-121.99280779590266],[38.282892940885574,-121.99280779590266]],
-                'condition': 1,
+                'condition': randint(1, 6),
                 'alert_severity': 0,
                 'warn': 1,
                 'day': 1,
@@ -312,10 +314,10 @@ if type == 0:
 payload = set_init(type)
 
 print "What is the URL of where you would like to send the webhook? " \
-      + "(default: http://127.0.0.1:4022)\n>",
+      + "(default: http://127.0.0.1:4011)\n>",
 url = raw_input()
 if url == '' or url.isspace():
-    url = "http://127.0.0.1:4022"
+    url = "http://127.0.0.1:4011"
     print "Assuming " + url + " as webhook URL"
 
 print "Does location matter or do you use geofences? (Y/N)\n>",

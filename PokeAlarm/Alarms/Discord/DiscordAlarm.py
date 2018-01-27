@@ -186,7 +186,7 @@ class DiscordAlarm(Alarm):
             }]
             if alert['map'] is not None:
                 if info.get('alert_type') == 'weather':
-                    coords = {
+                    map_info = {
                         'lat1': info['coords'][0][0],
                         'lng1': info['coords'][0][1],
                         'lat2': info['coords'][1][0],
@@ -195,14 +195,16 @@ class DiscordAlarm(Alarm):
                         'lng3': info['coords'][2][1],
                         'lat4': info['coords'][3][0],
                         'lng4': info['coords'][3][1],
+                        'gkey': next(self.__static_map_key),
                     }
                 else:
-                    coords = {
+                    map_info = {
                         'lat': info['lat'],
-                        'lng': info['lng']
+                        'lng': info['lng'],
+                        'gkey': next(self.__static_map_key),
                     }
                 payload['embeds'][0]['image'] = {
-                    'url': replace(alert['map'], coords)
+                    'url': replace(alert['map'], map_info)
                 }
         args = {
             'url': replace(alert['webhook_url'], info),
