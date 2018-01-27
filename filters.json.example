@@ -21,6 +21,29 @@
                 "geofences": [ "Central Park" ],
                 "custom_dts": { "key1": "value1", "key2": "value2" },
                 "is_missing_info": false
+            },
+            "Rare": {
+                <Set filter criteria for Rare>
+            },
+            "0IV": {
+                "min_iv": 0.0, "max_iv": 0.1
+            },
+            "100IV": {
+                "min_iv": 99.0, "max_iv": 100
+            },
+            "Unown": {
+                "monsters": [ 201 ]
+            },
+            "Event-0": {
+                "monsters": [  254, 257, 260, 281, 286, 287, 288, 289, 297, 308, 310, 317, 318, 320, 321, 326, 340, 342, 349, 350, 354, 356, 365 ]
+            },
+            "Event-1+2": {
+                "monsters": [ 252, 253, 255, 256, 258, 259, 261, 262, 264, 266, 267, 268, 269, 270, 271, 272, 274, 275, 276, 277, 278, 279, 280, 282, 283, 284, 285, 290, 291, 292, 293, 294, 295, 296, 298, 299, 300, 301, 302, 303, 304, 305, 306, 307, 309, 311, 312, 313, 314, 316, 319, 322, 323, 324, 325, 327, 328, 329, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 341, 343, 344, 345, 346, 347, 348, 351, 352, 353, 355, 357, 358, 359, 360, 361, 362, 363, 364, 366, 367, 368, 369, 370, 371, 372, 373, 374, 375, 376, 377, 378, 379, 380, 381, 382, 383, 384, 385, 386, 112, 113, 135, 136, 229 ],
+                "min_iv": 90, "max_iv": 100
+            },
+            "Event-3": {
+                "monsters": [ 263, 265, 273, 315 ],
+                "min_iv": 99, "max_iv": 100
             }
         }
     },
@@ -70,6 +93,10 @@
                 "geofences": [ "Central Park" ],
                 "custom_dts": { "key1": "value1", "key2": "value2" },
                 "is_missing_info": false
+            },
+            "Raid5": {
+                "min_egg_lvl": 5, "max_egg_lvl": 5,
+                "is_missing_info": false
             }
         }
     },
@@ -93,6 +120,15 @@
                 "geofences": [ "Central Park" ],
                 "custom_dts": { "key1": "value1", "key2": "value2" },
                 "is_missing_info": false
+            },
+            "Raid5": {
+                "min_raid_lvl": 5, "max_raid_lvl": 5
+            },
+            "Raid34": {
+                "min_raid_lvl": 3, "max_raid_lvl": 4
+            },
+            "SponsoredRaid" : {
+                "gym_sponsor_index_contains": [ ".*" ]
             }
         }
     },

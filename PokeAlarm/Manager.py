@@ -538,8 +538,8 @@ class Manager(object):
                                     self.__location, [mon.lat, mon.lng], dts)
 
                             if self.__quiet is False:
-                                log.info("{} monster notification has been triggered for geofence: {}, filter set: {}!".format(
-                                    mon.name, geofence_name, name))
+                                log.info("{} monster notification has been triggered for geofence: {}, filter set: {} channel: {}!".format(
+                                    mon.name, geofence_name, name, mon.channel_id))
 
                             threads = []
                             # Spawn notifications in threads so they can work in background

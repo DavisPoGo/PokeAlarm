@@ -71,8 +71,8 @@ def set_init(webhook_type):
                 "pokemon_id": 149,
                 "pokemon_level": 30,
                 "player_level": 30,
-                "latitude": 37.7876146,
-                "longitude": -122.390624,
+                "latitude": 38.556814, 
+                "longitude": -121.725527,
                 "encounter_id": current_time,
                 "cp_multiplier": 0.7317000031471252,
                 "form": None,
@@ -89,7 +89,8 @@ def set_init(webhook_type):
                 "spawn_start": 2153,
                 "spawn_end": 3264,
                 "verified": False,
-                "weather": 0
+                "weather": 0,
+                "boosted_weather": None,
             }
         }
     elif webhook_type == whtypes["2"]:
@@ -130,8 +131,8 @@ def set_init(webhook_type):
                 "park": None,
                 "sponsor": 4,
                 "level": 5,
-                "latitude": 37.7876146,
-                "longitude": -122.390624,
+                "latitude": 38.414232, 
+                "longitude": -121.379004,
             }
         }
     elif webhook_type == whtypes["5"]:
@@ -141,16 +142,16 @@ def set_init(webhook_type):
                 "gym_id": 0,
                 "name": "Test gym",
                 "team": 1,
-                "park": "Test park",
-                "sponsor": 4,
+                "park": None,
+                "sponsor": 2,
                 "weather": 5,
                 "pokemon_id": 150,
                 "cp": 12345,
                 "move_1": 123,
                 "move_2": 123,
                 "level": 5,
-                "latitude": 37.7876146,
-                "longitude": -122.390624
+                "latitude": 38.414232, 
+                "longitude": -121.379004,
                 "weather": 0
             }
         }
@@ -384,6 +385,9 @@ if type == whtypes["1"]:
     print "What type of weather? (put in a number)\n" + \
           weather_formatted + "\n>",
     int_or_default("weather")
+    print "What type of boosted weather? (put in a number)\n" + \
+          weather_formatted + "\n>",
+    int_or_default("boosted_weather")
 elif type == whtypes["3"]:
     gym_cache()
     print "Which team?(put in a number)\n" + teams_formatted + "\n>",

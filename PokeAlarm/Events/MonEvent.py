@@ -82,8 +82,8 @@ class MonEvent(BaseEvent):
         self.gender = MonUtils.get_gender_sym(
             check_for_none(int, data.get('gender'), Unknown.TINY))
 
-        self.height = check_for_none(float, data.get('height'), Unknown.SMALL)
-        self.weight = check_for_none(float, data.get('weight'), Unknown.SMALL)
+        self.height = check_for_none(float, data.get('height'), 0)
+        self.weight = check_for_none(float, data.get('weight'), 0)
         if Unknown.is_not(self.height, self.weight):
             self.size_id = get_pokemon_size(
                 self.monster_id, self.height, self.weight)
@@ -149,6 +149,11 @@ class MonEvent(BaseEvent):
             'boosted_weather_or_empty': Unknown.or_empty(boosted_weather_name),
             'boosted_weather_emoji':
                 get_weather_emoji(self.boosted_weather_id),
+            'boosted_weather_emoji_or_empty':
+                get_weather_emoji(Unknown.or_empty(self.boosted_weather_id)),
+            'boosted_weather_phrase_or_empty': (
+                "\nBoosted by {} weather".format(boosted_weather_name)
+                if not boosted_weather_name == 'None' else ''),
 
             # Encounter Stats
             'mon_lvl': self.mon_lvl,
@@ -201,8 +206,8 @@ class MonEvent(BaseEvent):
 
             # Cosmetic
             'gender': self.gender,
-            'height': self.height,
-            'weight': self.weight,
+            'height': "{:.2f}".format(self.height),
+            'weight': "{:.2f}".format(self.weight),
             'size': locale.get_size_name(self.size_id),
 
             # Misc

@@ -136,6 +136,11 @@ class RaidEvent(BaseEvent):
             'boosted_weather': boosted_weather_name,
             'boosted_weather_or_empty': Unknown.or_empty(boosted_weather_name),
             'boosted_weather_emoji': get_weather_emoji(boosted_weather),
+            'boosted_weather_emoji_or_empty':
+                get_weather_emoji(Unknown.or_empty(boosted_weather)),
+            'boosted_weather_phrase_or_empty': (
+                "\nBoosted by {} weather".format(boosted_weather_name)
+                if not boosted_weather_name == 'None' else ''),
 
             # Raid Info
             'raid_lvl': self.raid_lvl,
@@ -170,7 +175,9 @@ class RaidEvent(BaseEvent):
             'gym_description': self.gym_description,
             'gym_image': self.gym_image,
             'gym_sponsor': self.gym_sponsor,
+            'gym_sponsor_phrase': ("\nSponsored Gym" if Unknown.or_empty(self.gym_sponsor) else ""),
             'gym_park': self.gym_park,
+            'gym_park_phrase': ("\n***Possible EX Raid Location (" + self.gym_park + ")***" if Unknown.or_empty(self.gym_park) else ""),
             'team_id': self.current_team_id,
             'team_name': locale.get_team_name(self.current_team_id),
             'team_leader': locale.get_leader_name(self.current_team_id)
