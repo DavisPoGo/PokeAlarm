@@ -88,7 +88,8 @@ def set_init(webhook_type):
                 "spawn_start": 2153,
                 "spawn_end": 3264,
                 "verified": False,
-                "weather": 0
+                "weather": 0,
+                "boosted_weather": 0
             }
         }
     elif webhook_type == whtypes["2"]:
@@ -130,7 +131,7 @@ def set_init(webhook_type):
                 "sponsor": 4,
                 "level": 5,
                 "latitude": 37.7876146,
-                "longitude": -122.390624,
+                "longitude": -122.390624
             }
         }
     elif webhook_type == whtypes["5"]:
@@ -149,7 +150,8 @@ def set_init(webhook_type):
                 "move_2": 123,
                 "level": 5,
                 "latitude": 37.7876146,
-                "longitude": -122.390624
+                "longitude": -122.390624,
+                "weather": 0
             }
         }
 
@@ -296,10 +298,10 @@ if type == 0:
 payload = set_init(type)
 
 print "What is the URL of where you would like to send the webhook? " \
-      + "(default: http://127.0.0.1:4022)\n>",
+      + "(default: http://127.0.0.1:4000)\n>",
 url = raw_input()
 if url == '' or url.isspace():
-    url = "http://127.0.0.1:4022"
+    url = "http://127.0.0.1:4000"
     print "Assuming " + url + " as webhook URL"
 
 print "Does location matter or do you use geofences? (Y/N)\n>",
@@ -369,6 +371,9 @@ if type == whtypes["1"]:
     print "What type of weather? (put in a number)\n" + \
           weather_formatted + "\n>",
     int_or_default("weather")
+    print "Is this mon boosted by the weather? (y/n)\n",
+    if raw_input() in truthy:
+        payload["message"]["boosted_weather"] = payload["message"]["weather"]
 elif type == whtypes["3"]:
     gym_cache()
     print "Which team?(put in a number)\n" + teams_formatted + "\n>",

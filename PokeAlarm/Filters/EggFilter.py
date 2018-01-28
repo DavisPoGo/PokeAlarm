@@ -1,6 +1,5 @@
 # Standard Library Imports
 import operator
-import re
 # 3rd Party Imports
 # Local Imports
 from . import BaseFilter
