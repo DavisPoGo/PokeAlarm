@@ -81,8 +81,9 @@ class GoogleMaps(object):
             'state': 'unknown', 'country': 'country'
         }
         try:
+            gkey = next(self.__google_key)
             result = googlemaps.Client(
-                key = next(self.__google_key), timeout=3, retry_timeout=5).reverse_geocode(
+                key = gkey, timeout=3, retry_timeout=5).reverse_geocode(
                     location, language=self.__locale)[0]
             loc = {}
             for item in result['address_components']:
@@ -111,7 +112,7 @@ class GoogleMaps(object):
             self.__reverse_location_history[key] = details  # memoize
         except Exception as e:
             log.error("Encountered error while getting reverse "
-                      + "location data ({}: {})".format(type(e).__name__, e))
+                      + "location data ({}: {}, api: {})".format(type(e).__name__, e, gkey))
             log.debug("Stack trace: \n {}".format(traceback.format_exc()))
         # Return results, even if unable to complete
         return details
