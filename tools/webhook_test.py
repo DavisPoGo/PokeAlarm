@@ -6,6 +6,8 @@ import re
 import os
 import portalocker
 import pickle
+from random import randint
+
 
 truthy = frozenset([
     "yes", "Yes", "y", "Y", "true", "True", "TRUE", "YES", "1", "!0"
@@ -16,7 +18,8 @@ whtypes = {
     "2": "pokestop",
     "3": "gym",
     "4": "egg",
-    "5": "raid"
+    "5": "raid",
+    "6": "weather"
 }
 
 teams = {
@@ -70,8 +73,8 @@ def set_init(webhook_type):
                 "pokemon_id": 149,
                 "pokemon_level": 30,
                 "player_level": 30,
-                "latitude": 37.7876146,
-                "longitude": -122.390624,
+                "latitude": 38.556814, 
+                "longitude": -121.725527,
                 "encounter_id": current_time,
                 "cp_multiplier": 0.7317000031471252,
                 "form": None,
@@ -89,7 +92,7 @@ def set_init(webhook_type):
                 "spawn_end": 3264,
                 "verified": False,
                 "weather": 0,
-                "boosted_weather": 0
+                "boosted_weather": None,
             }
         }
     elif webhook_type == whtypes["2"]:
@@ -130,8 +133,8 @@ def set_init(webhook_type):
                 "park": None,
                 "sponsor": 4,
                 "level": 5,
-                "latitude": 37.7876146,
-                "longitude": -122.390624
+                "latitude": 38.414232, 
+                "longitude": -121.379004,
             }
         }
     elif webhook_type == whtypes["5"]:
@@ -141,17 +144,30 @@ def set_init(webhook_type):
                 "gym_id": 0,
                 "name": "Test gym",
                 "team": 1,
-                "park": "Test park",
-                "sponsor": 4,
+                "park": None,
+                "sponsor": 2,
                 "weather": 5,
                 "pokemon_id": 150,
                 "cp": 12345,
                 "move_1": 123,
                 "move_2": 123,
                 "level": 5,
-                "latitude": 37.7876146,
-                "longitude": -122.390624,
+                "latitude": 38.414232, 
+                "longitude": -121.379004,
                 "weather": 0
+            }
+        }
+    elif webhook_type == whtypes["6"]:
+        payloadr = {
+            "type": "weather",
+            "message": {
+                "s2_cell_id": 0,
+                'time_changed': current_time,
+                'coords': [[38.25522067755094,-122.08374449567627],[38.179280284460866,-122.08374449567626],[38.20693488934502,-121.99280779590266],[38.282892940885574,-121.99280779590266]],
+                'condition': randint(1, 6),
+                'alert_severity': 0,
+                'warn': 1,
+                'day': 1,
             }
         }
 

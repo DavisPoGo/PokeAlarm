@@ -140,7 +140,7 @@ def parse_settings(root_path):
         action='append', default=[],
         help='Names of Manager processes to start.')
     parser.add_argument(
-        '-k', '--key', type=parse_unicode, action='append', default=[None],
+        '-k', '--key', type=str, action='append', default=[],
         help='Specify a Google API Key to use.')
     parser.add_argument(
         '-f', '--filters', type=parse_unicode, action='append',
@@ -185,6 +185,10 @@ def parse_settings(root_path):
     parser.add_argument(
         '-tz', '--timezone', type=str, action='append', default=[None],
         help='Timezone used for notifications. Ex: "America/Los_Angeles"')
+    parser.add_argument(
+        '-api', '--channel_id', type=parse_unicode, action='append',
+        default=['channel_id.json'],
+        help='Translate Filter set and Geofence to Discord API key. default: channel_id.json')
 
     args = parser.parse_args()
 
@@ -201,10 +205,10 @@ def parse_settings(root_path):
     config['DEBUG'] = args.debug
 
     # Check to make sure that the same number of arguments are included
-    for arg in [args.key, args.filters, args.alarms, args.rules,
+    for arg in [args.filters, args.alarms, args.rules,
                 args.geofences, args.location, args.locale, args.units,
                 args.cache_type, args.timelimit, args.max_attempts,
-                args.timezone]:
+                args.timezone, args.channel_id]:
         if len(arg) > 1:  # Remove defaults from the list
             arg.pop(0)
         size = len(arg)
@@ -240,8 +244,7 @@ def parse_settings(root_path):
         config['UNITS'] = get_from_list(args.units, m_ct, args.units[0])
         m = Manager(
             name=args.manager_name[m_ct],
-            google_key=get_from_list(
-                args.key, m_ct, args.key[0]),
+            google_key=args.key,
             locale=get_from_list(args.locale, m_ct, args.locale[0]),
             units=get_from_list(args.units, m_ct, args.units[0]),
             timezone=get_from_list(args.timezone, m_ct, args.timezone[0]),
@@ -256,7 +259,8 @@ def parse_settings(root_path):
             geofence_file=get_from_list(
                 args.geofences, m_ct, args.geofences[0]),
             alarm_file=get_from_list(args.alarms, m_ct, args.alarms[0]),
-            debug=config['DEBUG']
+            debug=config['DEBUG'],
+            channel_id_file=get_from_list(args.channel_id, m_ct, args.channel_id[0])
         )
         parse_rules_file(m, get_from_list(args.rules, m_ct, args.rules[0]))
         if m.get_name() not in managers:

@@ -84,8 +84,8 @@ class MonEvent(BaseEvent):
         self.gender = MonUtils.get_gender_sym(
             check_for_none(int, data.get('gender'), Unknown.TINY))
 
-        self.height = check_for_none(float, data.get('height'), Unknown.SMALL)
-        self.weight = check_for_none(float, data.get('weight'), Unknown.SMALL)
+        self.height = check_for_none(float, data.get('height'), 0)
+        self.weight = check_for_none(float, data.get('weight'), 0)
         if Unknown.is_not(self.height, self.weight):
             self.size_id = get_pokemon_size(
                 self.monster_id, self.height, self.weight)
@@ -96,7 +96,9 @@ class MonEvent(BaseEvent):
         # Correct this later
         self.name = self.monster_id
         self.geofence = Unknown.REGULAR
+        self.geofence_list = []
         self.custom_dts = {}
+        self.channel_id = Unknown.REGULAR
 
     def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
@@ -138,6 +140,8 @@ class MonEvent(BaseEvent):
             'gmaps': get_gmaps_link(self.lat, self.lng),
             'applemaps': get_applemaps_link(self.lat, self.lng),
             'geofence': self.geofence,
+            'geofence_list': self.geofence_list,
+            'channel_id': self.channel_id,
 
             # Weather
             'weather_id': self.weather_id,
@@ -154,6 +158,10 @@ class MonEvent(BaseEvent):
             'boosted_or_empty': locale.get_boosted_text() if \
                 Unknown.is_not(self.boosted_weather_id) and
                 self.boosted_weather_id != 0 else '',
+            'boosted_weather_phrase_or_empty': (
+                "\nBoosted by {} weather".format(boosted_weather_name) if \
+                Unknown.is_not(self.boosted_weather_id) and
+                self.boosted_weather_id != 0 else ''),
 
             # Encounter Stats
             'mon_lvl': self.mon_lvl,
@@ -213,8 +221,8 @@ class MonEvent(BaseEvent):
 
             # Cosmetic
             'gender': self.gender,
-            'height': self.height,
-            'weight': self.weight,
+            'height': "{:.2f}".format(self.height),
+            'weight': "{:.2f}".format(self.weight),
             'size': locale.get_size_name(self.size_id),
 
             # Misc
