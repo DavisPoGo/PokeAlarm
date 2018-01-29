@@ -91,7 +91,9 @@ class RaidEvent(BaseEvent):
 
         self.name = self.gym_id
         self.geofence = Unknown.REGULAR
+        self.geofence_list = []
         self.custom_dts = {}
+        self.channel_id = Unknown.REGULAR
 
     def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
@@ -158,6 +160,8 @@ class RaidEvent(BaseEvent):
             'gmaps': get_gmaps_link(self.lat, self.lng),
             'applemaps': get_applemaps_link(self.lat, self.lng),
             'geofence': self.geofence,
+            'geofence_list': self.geofence_list,
+            'channel_id': self.channel_id,
 
             # Weather
             'weather_id': self.weather_id,
@@ -173,6 +177,9 @@ class RaidEvent(BaseEvent):
                 self.boosted_weather_id),
             'boosted_or_empty':
                 locale.get_boosted_text() if self.boss_level == 25 else '',
+            'boosted_weather_phrase_or_empty': (
+                "\nBoosted by {} weather".format(boosted_weather_name)
+                if boss_level == 25 else ''),
 
             # Raid Info
             'raid_lvl': self.raid_lvl,
@@ -213,10 +220,12 @@ class RaidEvent(BaseEvent):
             'gym_description': self.gym_description,
             'gym_image': self.gym_image,
             'sponsor_id': self.sponsor_id,
+            'gym_sponsor_phrase': ("\nSponsored Gym" if Unknown.or_empty(self.sponsor_id) else ""),
             'sponsored':
                 self.sponsor_id > 0 if Unknown.is_not(self.sponsor_id)
                 else Unknown.REGULAR,
             'park': self.park,
+            'gym_park_phrase': ("\n***Possible EX Raid Location (" + self.park + ")***" if Unknown.or_empty(self.park) else ""),
             'team_id': self.current_team_id,
             'team_name': locale.get_team_name(self.current_team_id),
             'team_leader': locale.get_leader_name(self.current_team_id)

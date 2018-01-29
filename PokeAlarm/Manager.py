@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 import gevent
 from gevent.queue import Queue
 from gevent.event import Event
+import itertools
 
 # Local Imports
 import Alarms
@@ -33,7 +34,7 @@ log = logging.getLogger('Manager')
 class Manager(object):
     def __init__(self, name, google_key, locale, units, timezone, time_limit,
                  max_attempts, location, quiet, cache_type, filter_file,
-                 geofence_file, alarm_file, debug):
+                 geofence_file, alarm_file, debug, channel_id_file):
         # Set the name of the Manager
         self.__name = str(name).lower()
         log.info("----------- Manager '{}' ".format(self.__name)
@@ -80,6 +81,11 @@ class Manager(object):
         self.geofences = None
         if str(geofence_file).lower() != 'none':
             self.geofences = load_geofence_file(get_path(geofence_file))
+
+        # Load in the file to get discord API key from geofence/filter-set
+        self.channel_id = {}
+        self.load_channel_id_file(get_path(channel_id_file))
+
         # Create the alarms to send notifications out with
         self.__alarms = {}
         self.load_alarms_file(get_path(alarm_file), int(max_attempts))
@@ -422,6 +428,37 @@ class Manager(object):
         log.debug("Stack trace: \n {}".format(traceback.format_exc()))
         sys.exit(1)
 
+    def load_channel_id_file(self, file_path):
+        log.info("Loading API keys from the file at {}".format(file_path))
+        try:
+            with open(file_path, 'r') as f:
+                self.channel_id = json.load(f)
+            if type(self.channel_id) is not dict:
+                log.critical("API key file must be a dict objects "
+                             + "- { {...}, {...}, ... {...} }")
+                sys.exit(1)
+            log.info("API Key file found")
+            return  # all done
+        except ValueError as e:
+            log.error("Encountered error while loading Alarms file: "
+                      + "{}: {}".format(type(e).__name__, e))
+            log.error(
+                "PokeAlarm has encountered a 'ValueError' while loading the "
+                + " API key file. This typically means your file isn't in the "
+                + "correct json format. Try loading your file contents into"
+                + " a json validator.")
+        except IOError as e:
+            log.error("Encountered error while loading API key: "
+                      + "{}: {}".format(type(e).__name__, e))
+            log.error("PokeAlarm was unable to find a api key file "
+                      + "at {}. Please check that this file".format(file_path)
+                      + " exists and PA has read permissions.")
+        except Exception as e:
+            log.error("Encountered error while loading api key: "
+                      + "{}: {}".format(type(e).__name__, e))
+        log.debug("Stack trace: \n {}".format(traceback.format_exc()))
+        sys.exit(1)
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ HANDLE EVENTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -557,6 +594,12 @@ class Manager(object):
             mon.direction = get_cardinal_dir(
                 [mon.lat, mon.lng], self.__location)
 
+        # Checks to see which geofences contain the event
+        if not self.match_geofences(mon):
+            log.debug("{} monster was skipped because not in any geofences"
+                      "".format(mon.name))
+            return
+
         # Check for Rules
         rules = self.__mon_rules
         if len(rules) == 0:  # If no rules, default to all
@@ -566,16 +609,23 @@ class Manager(object):
         for r_name, rule in rules.iteritems():  # For all rules
             for f_name in rule.filter_names:  # Check Filters in Rules
                 f = self.__mon_filters.get(f_name)
-                passed = f.check_event(mon) and self.check_geofences(f, mon)
+                passed = f.check_event(mon)
                 if not passed:
                     continue  # go to next filter
-                mon.custom_dts = f.custom_dts
-                if self.__quiet is False:
-                    log.info("{} monster notification"
-                             " has been triggered in rule '{}'!"
-                             "".format(mon.name, r_name))
-                self._trigger_mon(mon, rule.alarm_names)
-                break  # Next rule
+                for geofence_name in mon.geofence_list:
+                    if not self.get_channel_id(mon, f_name, geofence_name):
+                        log.debug("No API key set for {} monster"
+                                  " notification for geofence: {},"
+                                  " filter set: {}!"
+                                  "".format(mon.name, geofence_name, f_name))
+                        continue
+                    mon.custom_dts = f.custom_dts
+                    mon.geofence = mon.geofence_list[0] if geofence_name not in self.geofences.iterkeys() else geofence_name
+                    if self.__quiet is False:
+                        log.info("{} monster notification"
+                                 " has been triggered in rule '{}', for geofence: {}, filter set: {} channel: {}!"
+                                 "".format(mon.name, r_name, geofence_name, f_name, mon.channel_id))
+                    self._trigger_mon(mon, rule.alarm_names)
 
     def _trigger_mon(self, mon, alarms):
         # Generate the DTS for the event
@@ -803,6 +853,12 @@ class Manager(object):
             egg.direction = get_cardinal_dir(
                 [egg.lat, egg.lng], self.__location)
 
+        # Checks to see which geofences contain the event
+        if not self.match_geofences(egg):
+            log.debug("{} egg was skipped because not in any geofences"
+                      "".format(egg.name))
+            return
+
         # Check for Rules
         rules = self.__egg_rules
         if len(rules) == 0:  # If no rules, default to all
@@ -812,16 +868,23 @@ class Manager(object):
         for r_name, rule in rules.iteritems():  # For all rules
             for f_name in rule.filter_names:  # Check Filters in Rules
                 f = self.__egg_filters.get(f_name)
-                passed = f.check_event(egg) and self.check_geofences(f, egg)
+                passed = f.check_event(egg)
                 if not passed:
                     continue  # go to next filter
-                egg.custom_dts = f.custom_dts
-                if self.__quiet is False:
-                    log.info("{} egg notification"
-                             " has been triggered in rule '{}'!"
-                             "".format(egg.name, r_name))
-                self._trigger_egg(egg, rule.alarm_names)
-                break  # Next rule
+                for geofence_name in egg.geofence_list:
+                    if not self.get_channel_id(egg, f_name, geofence_name):
+                        log.debug("No API key set for {} egg"
+                                  " notification for geofence: {},"
+                                  " filter set: {}!"
+                                  "".format(egg.name, geofence_name, f_name))
+                        continue
+                    egg.custom_dts = f.custom_dts
+                    egg.geofence = egg.geofence_list[0] if geofence_name not in self.geofences.iterkeys() else geofence_name
+                    if self.__quiet is False:
+                        log.info("{} egg notification"
+                                 " has been triggered in rule '{}', for geofence: {}, filter set: {} channel: {}!"
+                                 "".format(egg.name, r_name, geofence_name, f_name, egg.channel_id))
+                    self._trigger_egg(egg, rule.alarm_names)
 
     def _trigger_egg(self, egg, alarms):
         # Generate the DTS for the event
@@ -888,6 +951,12 @@ class Manager(object):
             raid.direction = get_cardinal_dir(
                 [raid.lat, raid.lng], self.__location)
 
+        # Checks to see which geofences contain the event
+        if not self.match_geofences(raid):
+            log.debug("{} raid was skipped because not in any geofences"
+                      "".format(raid.name))
+            return
+
         # Check for Rules
         rules = self.__raid_rules
         if len(rules) == 0:  # If no rules, default to all
@@ -897,16 +966,23 @@ class Manager(object):
         for r_name, rule in rules.iteritems():  # For all rules
             for f_name in rule.filter_names:  # Check Filters in Rules
                 f = self.__raid_filters.get(f_name)
-                passed = f.check_event(raid) and self.check_geofences(f, raid)
+                passed = f.check_event(raid)
                 if not passed:
                     continue  # go to next filter
-                raid.custom_dts = f.custom_dts
-                if self.__quiet is False:
-                    log.info("{} raid notification"
-                             " has been triggered in rule '{}'!"
-                             "".format(raid.name, r_name))
-                self._trigger_raid(raid, rule.alarm_names)
-                break  # Next rule
+                for geofence_name in raid.geofence_list:
+                    if not self.get_channel_id(raid, f_name, geofence_name):
+                        log.debug("No API key set for {} raid"
+                                  " notification for geofence: {},"
+                                  " filter set: {}!"
+                                  "".format(raid.name, geofence_name, f_name))
+                        continue
+                    raid.custom_dts = f.custom_dts
+                    raid.geofence = raid.geofence_list[0] if geofence_name not in self.geofences.iterkeys() else geofence_name
+                    if self.__quiet is False:
+                        log.info("{} raid notification"
+                                 " has been triggered in rule '{}', for geofence: {}, filter set: {} channel: {}!"
+                                 "".format(raid.name, r_name, geofence_name, f_name, raid.channel_id))
+                    self._trigger_raid(raid, rule.alarm_names)
 
     def _trigger_raid(self, raid, alarms):
         # Generate the DTS for the event
@@ -952,6 +1028,12 @@ class Manager(object):
         self.__cache.update_cell_weather(
             weather.weather_cell_id, weather.condition)
 
+        # Checks to see which geofences contain the event
+        if not self.match_weather_geofences(weather):
+            log.debug("{} weather was skipped because not in any geofences"
+                      "".format(weather.name))
+            return
+
         # Check for Rules
         rules = self.__weather_rules
         if len(rules) == 0:  # If no rules, default to all
@@ -961,21 +1043,26 @@ class Manager(object):
         for r_name, rule in rules.iteritems():  # For all rules
             for f_name in rule.filter_names:  # Check Filters in Rules
                 f = self.__weather_filters.get(f_name)
-                passed = f.check_event(weather) and \
-                    self.check_weather_geofences(f, weather)
+                passed = f.check_event(weather)
                 if not passed:
                     continue  # go to next filter
-                weather.custom_dts = f.custom_dts
-
-                if self.__quiet is False:
-                    log.info("{} weather notification"
-                             " has been triggered in rule '{}'!"
-                             "".format(weather.weather_cell_id, r_name))
-                self._trigger_weather(weather, rule.alarm_names)
-                break  # Next rule
+                for geofence_name in weather.geofence_list:
+                    if not self.get_channel_id(weather, f_name, geofence_name):
+                        log.debug("No API key set for {} weather"
+                                  " notification for geofence: {},"
+                                  " filter set: {}!"
+                                  "".format(weather.name, geofence_name, f_name))
+                        continue
+                    weather.custom_dts = f.custom_dts
+                    weather.geofence = weather.geofence_list[0] if geofence_name not in self.geofences.iterkeys() else geofence_name
+                    if self.__quiet is False:
+                        log.info("{} weather notification"
+                                 " has been triggered in rule '{}', for geofence: {}, filter set: {} channel: {}!"
+                                 "".format(weather.name, r_name, geofence_name, f_name, weather.channel_id))
+                    self._trigger_weather(weather, rule.alarm_names)
 
     def _trigger_weather(self, weather, alarms):
-
+        # Generate the DTS for the event
         dts = weather.generate_dts(
             self.__locale, self.__timezone, self.__units)
 
@@ -1013,6 +1100,29 @@ class Manager(object):
         f.reject(e, "not in geofences")
         return False
 
+    # Check to see if a notification is within the given range
+    def match_geofences(self, e):
+        """ Returns true if the event passes the filter's geofences. """
+        if self.geofences is None:  # No geofences set (Improve here)
+            return False
+        for name in self.geofences.iterkeys():
+            gf = self.geofences.get(name)
+            if not gf:  # gf doesn't exist
+                log.error("Cannot check geofence %s: does not exist!", name)
+            elif gf.contains(e.lat, e.lng):  # e in gf
+                gf_name = gf.get_name()
+                log.debug("{} is in geofence {}!".format(
+                    e.name, gf_name))
+                e.geofence_list.append(gf_name)  # Set the geofence for dts
+                if "-" in gf_name and gf_name.split('-')[0] not in e.geofence_list:
+                    e.geofence_list.append(gf_name.split('-')[0])
+            else:  # e not in gf
+                log.debug("%s not in %s.", e.name, name)
+        if not e.geofence_list:
+            return False
+        else:
+            e.geofence_list.append('All')
+        return True
 
 # Check to see if a weather notification s2 cell
 # overlaps with a given range (geofence)
@@ -1036,4 +1146,39 @@ class Manager(object):
                 log.debug("%s not in %s.", weather.weather_cell_id, name)
         f.reject(weather, "not in geofences")
         return False
+
+    def match_weather_geofences(self, e):
+        """ Returns true if the event passes the filter's geofences. """
+        if self.geofences is None:  # No geofences set (Improve here)
+            return False
+        for name in self.geofences.iterkeys():
+            gf = self.geofences.get(name)
+            if not gf:  # gf doesn't exist
+                log.error("Cannot check geofence %s: does not exist!", name)
+            elif gf.check_overlap(e):  # e in gf
+                gf_name = gf.get_name()
+                log.debug("{} is in geofence {}!".format(
+                    e.name, gf_name))
+                e.geofence_list.append(gf_name)  # Set the geofence for dts
+                if "-" in gf_name and gf_name.split('-')[0] not in e.geofence_list:
+                    e.geofence_list.append(gf_name.split('-')[0])
+            else:  # e not in gf
+                log.debug("%s not in %s.", e.name, name)
+        if not e.geofence_list:
+            return False
+        else:
+            e.geofence_list.append('All')
+        return True
+
+    def get_channel_id(self, e, filter_name, geofence_name):
+        try:
+            api_filter_name = filter_name.split('-')[0]
+            e.channel_id = self.channel_id[geofence_name][api_filter_name]
+            return True
+        except KeyError:
+            log.debug("error in geofence: %s filter: %s.", geofence_name, api_filter_name)
+            return False
+
+
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
