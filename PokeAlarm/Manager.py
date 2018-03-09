@@ -1115,15 +1115,13 @@ class Manager(object):
                 log.debug("{} is in geofence {}!".format(
                     e.name, gf_name))
                 e.geofence_list.append(gf_name)  # Set the geofence for dts
-                if "-" in gf_name and gf_name.split('-')[0] not in e.geofence_list:
-                    e.geofence_list.append(gf_name.split('-')[0])
+                e.geofence_list.append('All')
+                if "-" in gf_name:
+                    e.geofence_list.append(gf_name.split('-')[1])
+                return True
             else:  # e not in gf
                 log.debug("%s not in %s.", e.name, name)
-        if not e.geofence_list:
-            return False
-        else:
-            e.geofence_list.append('All')
-        return True
+        return False
 
 # Check to see if a weather notification s2 cell
 # overlaps with a given range (geofence)
