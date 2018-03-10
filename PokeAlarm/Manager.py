@@ -1154,20 +1154,18 @@ class Manager(object):
             gf = self.geofences.get(name)
             if not gf:  # gf doesn't exist
                 log.error("Cannot check geofence %s: does not exist!", name)
-            elif gf.check_overlap(e):  # e in gf
+            elif gf.contains(e.lat, e.lng):  # e in gf
                 gf_name = gf.get_name()
                 log.debug("{} is in geofence {}!".format(
                     e.name, gf_name))
                 e.geofence_list.append(gf_name)  # Set the geofence for dts
-                if "-" in gf_name and gf_name.split('-')[0] not in e.geofence_list:
-                    e.geofence_list.append(gf_name.split('-')[0])
+                e.geofence_list.append('All')
+                if "-" in gf_name:
+                    e.geofence_list.append(gf_name.split('-')[1])
+                return True
             else:  # e not in gf
                 log.debug("%s not in %s.", e.name, name)
-        if not e.geofence_list:
-            return False
-        else:
-            e.geofence_list.append('All')
-        return True
+        return False
 
     def get_channel_id(self, e, filter_name, geofence_name):
         try:
