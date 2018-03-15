@@ -1260,7 +1260,7 @@ class Manager(object):
         f.reject(weather, "not in geofences")
         return False
 
-    def match_weather_geofences(self, e):
+    def match_weather_geofences(self, weather):
         """ Returns true if the event passes the filter's geofences. """
         if self.geofences is None:  # No geofences set (Improve here)
             return False
@@ -1268,17 +1268,18 @@ class Manager(object):
             gf = self.geofences.get(name)
             if not gf:  # gf doesn't exist
                 log.error("Cannot check geofence %s: does not exist!", name)
-            elif gf.contains(e.lat, e.lng):  # e in gf
-                gf_name = gf.get_name()
-                log.debug("{} is in geofence {}!".format(
-                    e.name, gf_name))
-                e.geofence_list.append(gf_name)  # Set the geofence for dts
-                e.geofence_list.append('All')
-                if "-" in gf_name:
-                    e.geofence_list.append(gf_name.split('-')[1])
-                return True
+            elif gf_name.split('-')[1] not in weather.geofence_list:
+                if gf.check_overlap(weather):  # weather cell overlaps gf
+                    gf_name = gf.get_name()
+                    log.debug("{} is in geofence {}!".format(
+                        weather.name, gf_name))
+                    weather.geofence_list.append(gf_name)  # Set the geofence for dts
+                    weather.geofence_list.append('All')
+                    if "-" in gf_name:
+                        weather.geofence_list.append(gf_name.split('-')[1])
+                    return True
             else:  # e not in gf
-                log.debug("%s not in %s.", e.name, name)
+                log.debug("%s not in %s.", weather.name, name)
         return False
 
     def get_channel_id(self, e, filter_name, geofence_name):

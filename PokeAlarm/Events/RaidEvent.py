@@ -183,7 +183,7 @@ class RaidEvent(BaseEvent):
                 locale.get_boosted_text() if self.boss_level == 25 else '',
             'boosted_weather_phrase_or_empty': (
                 "\nBoosted by {} weather".format(boosted_weather_name)
-                if boss_level == 25 else ''),
+                if self.boss_level == 25 else ''),
 
             # Raid Info
             'raid_lvl': self.raid_lvl,
