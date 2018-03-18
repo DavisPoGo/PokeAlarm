@@ -6,16 +6,7 @@ import re
 import os
 import portalocker
 import pickle
-from glob import glob
-
-
-def get_path(path):
-    path = os.path.join(ROOT_PATH, path)
-    if not os.path.exists(path):
-        print 'The webhook_test.py file has moved from the PokeAlarm/tools' + \
-              ' folder!\nPlease put it back or re-download PokeAlarm.'
-        sys.exit(1)
-    return path
+from random import randint
 
 
 truthy = frozenset([
@@ -27,22 +18,49 @@ whtypes = {
     "2": "pokestop",
     "3": "gym",
     "4": "egg",
-    "5": "raid"
+    "5": "raid",
+    "6": "weather"
 }
 
-ROOT_PATH = os.path.abspath(os.path.dirname(__file__))
-locales_file = glob(get_path('../locales/en.json'))[0]
-data = json.loads(open(locales_file, 'rb+').read())
+teams = {
+    "0": "Uncontested",
+    "1": "Mystic",
+    "2": "Valor",
+    "3": "Instinct"
+}
+
+weather = {
+    "0": "None",
+    "1": "Clear",
+    "2": "Rain",
+    "3": "Partly Cloudy",
+    "4": "Cloudy",
+    "5": "Windy",
+    "6": "Snow",
+    "7": "Fog"
+}
 
 teams_formatted = re.sub('[{}",]', '', json.dumps(
-    data['teams'], indent=2, sort_keys=True))
+    teams, indent=4, sort_keys=True))
 
 weather_formatted = re.sub('[{}",]', '', json.dumps(
-    data['weather'], indent=2, sort_keys=True))
+    weather, indent=4, sort_keys=True))
 
 _cache = {}
 
 _gym_info = {}
+
+
+def get_image_url(image):
+    return \
+        "https://raw.githubusercontent.com/not4profit/images/master/" + image
+
+
+_default_gym_info = {
+    "name": "unknown",
+    "description": "unknown",
+    "url": get_image_url('icons/gym_0.png')
+}
 
 
 def set_init(webhook_type):
@@ -53,28 +71,28 @@ def set_init(webhook_type):
             "type": "pokemon",
             "message": {
                 "pokemon_id": 149,
-                "pokemon_level": None,
-                "player_level": None,
-                "latitude": 37.7876146,
-                "longitude": -122.390624,
+                "pokemon_level": 30,
+                "player_level": 30,
+                "latitude": 38.556814, 
+                "longitude": -121.725527,
                 "encounter_id": current_time,
                 "cp_multiplier": 0.7317000031471252,
                 "form": None,
-                "cp": None,
-                "individual_attack": None,
-                "individual_defense": None,
-                "individual_stamina": None,
-                "move_1": None,
-                "move_2": None,
+                "cp": 768,
+                "individual_attack": 10,
+                "individual_defense": 1,
+                "individual_stamina": 9,
+                "move_1": 281,
+                "move_2": 133,
                 "height": 0.5694651007652283,
-                "weight": None,
+                "weight": 5.733094215393066,
                 "gender": 3,
                 "seconds_until_despawn": 1754,
                 "spawn_start": 2153,
                 "spawn_end": 3264,
                 "verified": False,
-                "weather": None,
-                "boosted_weather": None
+                "weather": 0,
+                "boosted_weather": None,
             }
         }
     elif webhook_type == whtypes["2"]:
@@ -93,7 +111,7 @@ def set_init(webhook_type):
             "type": "gym",
             "message": {
                 "raid_active_until": 0,
-                "gym_id": current_time,
+                "gym_id": 0,
                 "gym_name": "unknown",
                 "team_id": 3,
                 "slots_available": 0,
@@ -109,26 +127,47 @@ def set_init(webhook_type):
         payloadr = {
             "type": "raid",
             "message": {
-                "gym_id": current_time,
-                "gym_name": "unknown",
+                "gym_id": 0,
+                "name": "Test gym",
+                "team": 1,
+                "park": None,
+                "sponsor": 4,
                 "level": 5,
-                "latitude": 37.7876146,
-                "longitude": -122.390624,
+                "latitude": 38.414232, 
+                "longitude": -121.379004,
             }
         }
     elif webhook_type == whtypes["5"]:
         payloadr = {
             "type": "raid",
             "message": {
-                "gym_id": current_time,
-                "gym_name": "unknown",
+                "gym_id": 0,
+                "name": "Test gym",
+                "team": 1,
+                "park": None,
+                "sponsor": 2,
+                "weather": 5,
                 "pokemon_id": 150,
                 "cp": 12345,
                 "move_1": 123,
                 "move_2": 123,
                 "level": 5,
-                "latitude": 37.7876146,
-                "longitude": -122.390624
+                "latitude": 38.414232, 
+                "longitude": -121.379004,
+                "weather": 0
+            }
+        }
+    elif webhook_type == whtypes["6"]:
+        payloadr = {
+            "type": "weather",
+            "message": {
+                "s2_cell_id": 0,
+                'time_changed': current_time,
+                'coords': [[38.25522067755094,-122.08374449567627],[38.179280284460866,-122.08374449567626],[38.20693488934502,-121.99280779590266],[38.282892940885574,-121.99280779590266]],
+                'condition': randint(1, 6),
+                'alert_severity': 0,
+                'warn': 1,
+                'day': 1,
             }
         }
 
@@ -150,17 +189,17 @@ def int_or_default(input_parm):
 
 def get_gym_info(gym_id):
     """ Gets the information about the gym. """
-    return _gym_info.get(gym_id, 'unknown')
+    return _gym_info.get(gym_id, _default_gym_info)
 
 
 def gym_or_invalid(prm, prm2):
     questionable_input = raw_input()
-    while get_gym_info(questionable_input) == "unknown":
+    while get_gym_info(questionable_input)['name'] == "unknown":
         print "Not a valid gym. Please try again..\n>",
         questionable_input = raw_input()
-    print "Gym found! {}".format(get_gym_info(questionable_input))
+    print "Gym found! {}".format(get_gym_info(questionable_input)['name'])
     payload["message"][prm] = questionable_input
-    payload["message"][prm2] = get_gym_info(questionable_input)
+    payload["message"][prm2] = get_gym_info(questionable_input)['name']
 
 
 def cache_or_invalid():
@@ -182,7 +221,7 @@ def load_cache(file):
     global _gym_info
     with portalocker.Lock(file, mode="rb") as f:
         data = pickle.load(f)
-        _gym_info = data.get('gym_name', {})
+        _gym_info = data.get('gym_info', {})
 
 
 def list_cache():
@@ -198,8 +237,9 @@ def list_gyms():
     if len(_gym_info) > 50:
         with portalocker.Lock(os.path.join(path, "gyms.txt"), mode="wb+") as f:
             i = 0
-            for key, name in _gym_info.items():
+            for key in _gym_info.keys():
                 i += 1
+                name = get_gym_info(key)['name']
                 f.write("[{}] {} : {} \n".format(i, name, key))
             f.close()
         print "Find list of gyms in your \\tools\ folder (gyms.txt)"
@@ -207,8 +247,9 @@ def list_gyms():
     else:
         print "Here is a list of gyms found in your cache:"
         i = 0
-        for key, name in _gym_info.items():
+        for key in _gym_info.keys():
             i += 1
+            name = get_gym_info(key)['name']
             print "[{}] {} : {} ".format(i, name, key)
         print "Enter gym id for raid (from above)\n>",
 
@@ -244,27 +285,25 @@ def reset_timers_and_encounters():
         })
     elif payload["type"] == "raid":
         payload["message"].update({
-            "gym_id": current_time,
             "start": current_time + 20,
             "end": current_time + 20 + 60,
         })
 
 
 def get_and_validate_team():
-    team = data['teams'].get(raw_input(), 5)
+    team = teams.get(raw_input(), 5)
     if team == 5:
-        print "Team invalid, defaulting to Neutral"
+        print "Team invalid, defaulting to Uncontested"
         team = 0
     else:
-        for team_id, team_name in data['teams'].iteritems():
+        for team_id, team_name in teams.iteritems():
             if team_name == team:
                 team = int(team_id)
-                break
     payload["message"]["team_id"] = team
 
 
 webhooks_formatted = re.sub('[{}",]', '', json.dumps(
-    whtypes, indent=2, sort_keys=True))
+    whtypes, indent=4, sort_keys=True))
 print "What kind of webhook would you like to send?(put in a number)\n"\
       + webhooks_formatted + ">",
 type = whtypes.get(raw_input(), 0)
@@ -275,10 +314,10 @@ if type == 0:
 payload = set_init(type)
 
 print "What is the URL of where you would like to send the webhook? " \
-      + "(default: http://127.0.0.1:4022)\n>",
+      + "(default: http://127.0.0.1:4000)\n>",
 url = raw_input()
 if url == '' or url.isspace():
-    url = "http://127.0.0.1:4022"
+    url = "http://127.0.0.1:4000"
     print "Assuming " + url + " as webhook URL"
 
 print "Does location matter or do you use geofences? (Y/N)\n>",
@@ -302,30 +341,29 @@ if type == whtypes["1"]:
     int_or_default("pokemon_id")
     print "Gender (1-3)\n>",
     int_or_default("gender")
-    monster_id = "{:03d}".format(payload["message"]["pokemon_id"])
-    if monster_id in data['forms'].keys():
-        sorted_forms = sorted(data['forms'][monster_id])
-        default_form_id = next(iter(sorted_forms))
-        forms_formatted = ', '.join(data['forms'][monster_id][x]
-                                    for x in sorted_forms)
-        print "Which form of " + \
-              data["pokemon"][monster_id] + ' would you like? (default: ' + \
-              data['forms'][monster_id][default_form_id] + ')\n' + \
-              forms_formatted + '\n>',
-        form_character = raw_input().lower()
-        found = False
-        for key, x in data['forms'][monster_id].items():
-            if x.lower() == form_character:
-                payload['message']['form'] = int(key)
-                found = True
-                break
-        if not found:
-            print "Not a valid value, using default"
-            payload["message"]["form"] = int(default_form_id)
+    if payload["message"]["pokemon_id"] == 201:
+        print "Which form of Unown would you like? (default: A)\n>",
+        form_character = raw_input()[0:1].upper()
+        if form_character == '':
+            print "Defaulting to A"
+            payload["message"]["form"] = 1
+        else:
+            form = ord(form_character)
+            # A-Z = 1-26, ! = 27, ? = 28
+            if ord('A') <= form <= ord('Z'):
+                form -= ord('A') - 1
+            elif form == 33:
+                # !
+                form = 27
+            elif form == 63:
+                # ?
+                form = 28
+            else:
+                print "Invalid form type. Defaulting to A"
+                form = 1
+            payload["message"]["form"] = form
     print "Encounters enabled?\n>",
     if raw_input() in truthy:
-        payload["message"]["player_level"] = 30
-        payload["message"]["height"] = 0.5694651007652283
         print "CP?\n>",
         int_or_default("cp")
         print "Attack IV\n>",
@@ -339,19 +377,17 @@ if type == whtypes["1"]:
         print "Id of move 2\n>",
         int_or_default("move_2")
         if payload["message"]["pokemon_id"] == 19:
-            print "Count towards tiny Rattata medal?\n>",
+            print "Count towards tiny Rattata medal?"
             if raw_input() in truthy:
                 payload["message"]["weight"] = 2.0
         if payload["message"]["pokemon_id"] == 129:
-            print "Count towards big Magikarp medal?\n>",
+            print "Count towards big Magikarp medal?"
             if raw_input() in truthy:
                 payload["message"]["weight"] = 14.0
-        print "Monster level?\n>",
-        int_or_default("pokemon_level")
-    print "What type of weather? (number only)(Default: None)\n" + \
+    print "What type of weather? (put in a number)\n" + \
           weather_formatted + "\n>",
     int_or_default("weather")
-    print "Is this mon boosted by the weather? (y/n)\n>",
+    print "Is this mon boosted by the weather? (y/n)\n",
     if raw_input() in truthy:
         payload["message"]["boosted_weather"] = payload["message"]["weather"]
 elif type == whtypes["3"]:
@@ -360,14 +396,16 @@ elif type == whtypes["3"]:
     get_and_validate_team()
 elif type == whtypes["4"]:
     gym_cache()
-    print "Which team?(put in a number)\n" + teams_formatted + "\n>",
-    get_and_validate_team()
+    print "What level of gym egg? (1-5)\n>",
+    egglevel = check_int(raw_input(), payload["message"]["level"])
+    if 6 > egglevel > 0:
+        payload["message"]["level"] = egglevel
+    else:
+        print "Egg level invalid. Assuming level 5"
 elif type == whtypes["5"]:
     gym_cache()
     print "Enter pokemon id for raid\n>",
     int_or_default("pokemon_id")
-    print "Which team?(put in a number)\n" + teams_formatted + "\n>",
-    get_and_validate_team()
     print "Moveset important?\n>",
     if raw_input() in truthy:
         print "Id of move 1\n>",
@@ -377,14 +415,6 @@ elif type == whtypes["5"]:
     print "What type of weather? (put in a number)\n" + \
           weather_formatted + "\n>",
     int_or_default("weather")
-
-if type in ["4", "5"]:
-    print "What level of raid/egg? (1-5)\n>",
-    level = check_int(raw_input(), payload["message"]["level"])
-    if 6 > level > 0:
-        payload["message"]["level"] = level
-    else:
-        print "Egg/Raid level invalid. Assuming level 5"
 
 reset_timers_and_encounters()
 
