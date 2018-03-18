@@ -1268,19 +1268,23 @@ class Manager(object):
             gf = self.geofences.get(name)
             if not gf:  # gf doesn't exist
                 log.error("Cannot check geofence %s: does not exist!", name)
-            elif gf_name.split('-')[1] not in weather.geofence_list:
+            elif gf.get_name().split('-')[-1] not in weather.geofence_list:
                 if gf.check_overlap(weather):  # weather cell overlaps gf
                     gf_name = gf.get_name()
                     log.debug("{} is in geofence {}!".format(
                         weather.name, gf_name))
                     weather.geofence_list.append(gf_name)  # Set the geofence for dts
-                    weather.geofence_list.append('All')
                     if "-" in gf_name:
                         weather.geofence_list.append(gf_name.split('-')[1])
-                    return True
-            else:  # e not in gf
-                log.debug("%s not in %s.", weather.name, name)
-        return False
+                else:  # weather not in gf
+                    log.debug("%s not in %s.", weather.name, name)
+            else:  # weather matched parent
+                log.debug("%s  %s Already matched parent area", weather.name, name)
+        if not weather.geofence_list:
+            return False
+        else:
+            weather.geofence_list.append('All')
+        return True
 
     def get_channel_id(self, e, filter_name, geofence_name):
         try:
