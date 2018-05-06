@@ -48,6 +48,8 @@ class StopEvent(BaseEvent):
         dts.update({
             # Identification
             'stop_id': self.stop_id,
+            'stop_name': self.stop_name,
+            'stop_url': self.url,
 
             # Time left
             'time_left': time[0],
