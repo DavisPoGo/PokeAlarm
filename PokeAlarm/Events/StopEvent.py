@@ -39,7 +39,9 @@ class StopEvent(BaseEvent):
         # Used to reject
         self.name = self.stop_id
         self.geofence = Unknown.REGULAR
+        self.geofence_list = []
         self.custom_dts = {}
+        self.channel_id = Unknown.REGULAR
 
     def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
