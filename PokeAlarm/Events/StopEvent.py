@@ -14,6 +14,7 @@ class StopEvent(BaseEvent):
     def __init__(self, data):
         """ Creates a new Stop Event based on the given dict. """
         super(StopEvent, self).__init__('stop')
+        check_for_none = BaseEvent.check_for_none
 
         # Identification
         self.stop_id = data['pokestop_id']
