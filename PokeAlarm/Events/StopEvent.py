@@ -70,5 +70,7 @@ class StopEvent(BaseEvent):
             'gmaps': get_gmaps_link(self.lat, self.lng),
             'applemaps': get_applemaps_link(self.lat, self.lng),
             'geofence': self.geofence
+            'geofence_list': self.geofence_list,
+            'channel_id': self.channel_id,
         })
         return dts
