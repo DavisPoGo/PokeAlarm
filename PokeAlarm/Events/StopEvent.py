@@ -17,9 +17,11 @@ class StopEvent(BaseEvent):
 
         # Identification
         self.stop_id = data['pokestop_id']
+        self.stop_name = data['name']
+        self.url = data['url']
 
         # Time left
-        self.expiration = data['lure_expiration']
+        self.expiration = check_for_none(float, data.get('lure_expiration'), Unknown.SMALL)
         self.time_left = None
         if self.expiration is not None:
             self.expiration = datetime.utcfromtimestamp(self.expiration)
