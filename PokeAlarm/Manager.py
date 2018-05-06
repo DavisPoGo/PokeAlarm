@@ -697,12 +697,12 @@ class Manager(object):
         for r_name, rule in rules.iteritems():  # For all rules
             for f_name in rule.filter_names:  # Check Filters in Rules
                 f = self.__stop_filters.get(f_name)
-                passed = f.check_event(mon)
+                passed = f.check_event(stop)
                 if not passed:
                     continue  # go to next filter
                 for geofence_name in stop.geofence_list:
                     if not self.get_channel_id(stop, f_name, geofence_name):
-                        log.debug("No API key set for {} monster"
+                        log.debug("No API key set for {} quest"
                                   " notification for geofence: {},"
                                   " filter set: {}!"
                                   "".format(stop.name, geofence_name, f_name))
@@ -710,7 +710,7 @@ class Manager(object):
                     stop.custom_dts = f.custom_dts
                     stop.geofence = stop.geofence_list[0] if geofence_name not in self.geofences.iterkeys() else geofence_name
                     if self.__quiet is False:
-                        log.info("{} monster notification"
+                        log.info("{} quest notification"
                                  " has been triggered in rule '{}', for geofence: {}, filter set: {} channel: {}!"
                                  "".format(stop.name, r_name, geofence_name, f_name, stop.channel_id))
                     self._trigger_stop(stop, rule.alarm_names)
