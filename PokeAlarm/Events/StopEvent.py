@@ -22,7 +22,7 @@ class StopEvent(BaseEvent):
         self.url = data['url']
 
         # Time left
-        self.expiration = check_for_none(float, data.get('lure_expiration'), Unknown.SMALL)
+        self.expiration = check_for_none(float, data.get('lure_expiration'), 0)
         self.time_left = None
         if self.expiration is not None:
             self.expiration = datetime.utcfromtimestamp(self.expiration)
