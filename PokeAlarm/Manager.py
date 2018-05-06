@@ -687,6 +687,12 @@ class Manager(object):
             stop.direction = get_cardinal_dir(
                 [stop.lat, stop.lng], self.__location)
 
+        # Checks to see which geofences contain the event
+        if not self.match_geofences(stop):
+            log.debug("{} stop was skipped because not in any geofences"
+                      "".format(stop.name))
+            return
+
         # Check for Rules
         rules = self.__stop_rules
         if len(rules) == 0:  # If no rules, default to all
