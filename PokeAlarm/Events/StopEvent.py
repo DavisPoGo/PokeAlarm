@@ -42,6 +42,8 @@ class StopEvent(BaseEvent):
         self.geofence_list = []
         self.custom_dts = {}
         self.channel_id = Unknown.REGULAR
+        self.quest = data['quest']
+        self.reward = data['reward']
 
     def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
@@ -71,6 +73,8 @@ class StopEvent(BaseEvent):
             'applemaps': get_applemaps_link(self.lat, self.lng),
             'geofence': self.geofence,
             'geofence_list': self.geofence_list,
-            'channel_id': self.channel_id
+            'channel_id': self.channel_id,
+            'quest': self.quest,
+            'reward': self.reward
         })
         return dts
