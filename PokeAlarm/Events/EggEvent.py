@@ -115,6 +115,6 @@ class EggEvent(BaseEvent):
             'team_id': self.current_team_id,
             'team_name': locale.get_team_name(self.current_team_id),
             'team_leader': locale.get_leader_name(self.current_team_id),
-            'submission_phrase':  ("\n**Submitted by: <@&" + self.discord_user_id + ">" if self.discord_user_id > 0 else "")
+            'submission_phrase':  ("\n**Submitted by: <@&" + str(self.discord_user_id) + ">" if self.discord_user_id > 0 else "")
         })
         return dts
