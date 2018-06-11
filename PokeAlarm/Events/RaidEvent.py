@@ -95,6 +95,8 @@ class RaidEvent(BaseEvent):
         self.custom_dts = {}
         self.channel_id = Unknown.REGULAR
 
+        self.discord_user_id = check_for_none(int, data.get('discord_user_id'), 0)
+
     def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
         raid_end_time = get_time_as_str(self.raid_end, timezone)
@@ -228,6 +230,8 @@ class RaidEvent(BaseEvent):
             'gym_park_phrase': ("\n***Possible EX Raid Location (" + self.park + ")***" if Unknown.or_empty(self.park) else ""),
             'team_id': self.current_team_id,
             'team_name': locale.get_team_name(self.current_team_id),
-            'team_leader': locale.get_leader_name(self.current_team_id)
+            'team_leader': locale.get_leader_name(self.current_team_id),
+
+            'submission_phrase':  ("\n**Submitted by: <@&" + self.discord_user_id + ">" if self.discord_user_id > 0 else "")
         })
         return dts

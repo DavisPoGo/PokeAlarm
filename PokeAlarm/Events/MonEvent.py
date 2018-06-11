@@ -122,6 +122,8 @@ class MonEvent(BaseEvent):
         self.custom_dts = {}
         self.channel_id = Unknown.REGULAR
 
+        self.discord_user_id = check_for_none(int, data.get('discord_user_id'), 0)
+
     def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
         time = get_time_as_str(self.disappear_time, timezone)
@@ -329,6 +331,8 @@ class MonEvent(BaseEvent):
                 and self.weight >= 13.13 else ''),
             'tiny_rat': (
                 'tiny' if self.monster_id == 19 and Unknown.is_not(self.weight)
-                and self.weight <= 2.41 else '')
+                and self.weight <= 2.41 else ''),
+
+            'submission_phrase':  ("\n**Submitted by: <@&" + self.discord_user_id + ">" if self.discord_user_id > 0 else "")
         })
         return dts

@@ -45,6 +45,8 @@ class StopEvent(BaseEvent):
         self.quest = data['quest']
         self.reward = data['reward']
 
+        self.discord_user_id = check_for_none(int, data.get('discord_user_id'), 0)
+
     def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
         time = get_time_as_str(self.expiration, timezone)
@@ -75,6 +77,7 @@ class StopEvent(BaseEvent):
             'geofence_list': self.geofence_list,
             'channel_id': self.channel_id,
             'quest': self.quest,
-            'reward': self.reward
+            'reward': self.reward,
+            'submission_phrase':  ("\n**Submitted by: <@&" + self.discord_user_id + ">" if self.discord_user_id > 0 else "")
         })
         return dts
