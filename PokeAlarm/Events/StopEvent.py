@@ -78,6 +78,6 @@ class StopEvent(BaseEvent):
             'channel_id': self.channel_id,
             'quest': self.quest,
             'reward': self.reward,
-            'submission_phrase':  ("\n**Submitted by: <@&" + str(self.discord_user_id) + ">" if self.discord_user_id > 0 else "")
+            'submission_phrase':  ("\n**Submitted by: <@" + str(self.discord_user_id) + ">" if self.discord_user_id > 0 else "")
         })
         return dts

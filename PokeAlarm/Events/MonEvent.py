@@ -333,6 +333,6 @@ class MonEvent(BaseEvent):
                 'tiny' if self.monster_id == 19 and Unknown.is_not(self.weight)
                 and self.weight <= 2.41 else ''),
 
-            'submission_phrase':  ("\n**Submitted by: <@&" + str(self.discord_user_id) + ">" if self.discord_user_id > 0 else "")
+            'submission_phrase':  ("\n**Submitted by: <@" + str(self.discord_user_id) + ">" if self.discord_user_id > 0 else "")
         })
         return dts
