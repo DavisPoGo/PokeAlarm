@@ -991,7 +991,7 @@ class Manager(object):
             return
 
         # Skip if previously processed
-        if self.__cache.raid_expiration(raid.gym_id) is not None:
+        if self.__cache.raid_expiration(raid.gym_id) is not None and raid.quick_id != 133:
             self._log.debug("Raid {} was skipped because it was "
                             "previously processed.".format(raid.name))
             return
@@ -1047,6 +1047,9 @@ class Manager(object):
     def process_weather(self, weather):
         # type: (Events.WeatherEvent) -> None
         """ Process a weather event and notify alarms if it passes. """
+
+        # Set the name for this event so we can log rejects better
+        weather.name = self.__locale.get_weather_name(weather.s2_cell_id)
 
         # Make sure that weather changes are enabled
         if self._weather_enabled is False:

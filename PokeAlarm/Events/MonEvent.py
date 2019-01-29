@@ -195,9 +195,9 @@ class MonEvent(BaseEvent):
                 Unknown.is_not(self.boosted_weather_id) and
                 self.boosted_weather_id != 0 else '',
             'boosted_weather_phrase_or_empty': (
-                "\nBoosted by {} weather".format(boosted_weather_name) if \
-                Unknown.is_not(self.boosted_weather_id) and
-                self.boosted_weather_id != 0 else ''),
+                "\nBoosted by {} weather".format(weather_name) if \
+                Unknown.is_not(self.weather_id) and
+                self.weather_id != 0 else ''),
 
             # Encounter Stats
             'mon_lvl': self.mon_lvl,
