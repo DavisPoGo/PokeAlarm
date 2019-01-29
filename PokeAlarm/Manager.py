@@ -716,7 +716,7 @@ class Manager(object):
         mon.name = self.__locale.get_pokemon_name(mon.monster_id)
 
         # Check if previously processed and update expiration
-        if self.__cache.monster_expiration(mon.enc_id) is not None:
+        if self.__cache.monster_expiration(mon.enc_id) is not None and not Unknown.is_not(mon.iv):
             self._log.debug("{} monster was skipped because it was "
                             "previously processed.".format(mon.name))
             return
@@ -989,7 +989,7 @@ class Manager(object):
             return
 
         # Skip if previously processed
-        if self.__cache.raid_expiration(raid.gym_id) is not None:
+        if self.__cache.raid_expiration(raid.gym_id) is not None and raid.quick_id != 133:
             self._log.debug("Raid {} was skipped because it was "
                             "previously processed.".format(raid.name))
             return
