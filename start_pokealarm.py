@@ -241,6 +241,10 @@ def parse_settings(root_path):
     parser.add_argument(
         '-ma', '--max_attempts', type=int, default=[3], action='append',
         help='Maximum attempts an alarm makes to send a notification.')
+    parser.add_argument(
+        '-api', '--channel_id', type=parse_unicode, action='append',
+        default=['channel_id.json'],
+        help='Translate Filter set and Geofence to Discord API key. default: channel_id.json')
 
     args = parser.parse_args()
 
@@ -287,7 +291,7 @@ def parse_settings(root_path):
                 args.geofences, args.location, args.locale, args.units,
                 args.cache_type, args.timelimit, args.max_attempts,
                 args.timezone, args.gmaps_rev_geocode, args.gmaps_dm_walk,
-                args.gmaps_dm_bike, args.gmaps_dm_drive,
+                args.channel_id, args.gmaps_dm_bike, args.gmaps_dm_drive,
                 args.gmaps_dm_transit, args.mgr_log_lvl, args.mgr_log_size,
                 args.mgr_log_file]:
         if len(arg) > 1:  # Remove defaults from the list
@@ -339,7 +343,8 @@ def parse_settings(root_path):
             location=get_from_list(args.location, m_ct, args.location[0]),
             geofence_file=get_from_list(
                 args.geofences, m_ct, args.geofences[0]),
-            debug=config['DEBUG']
+            debug=config['DEBUG'],
+            channel_id_file=get_from_list(args.channel_id, m_ct, args.channel_id[0])
         )
 
         m.set_log_level(get_from_list(

@@ -59,7 +59,9 @@ class EggEvent(BaseEvent):
 
         self.name = self.gym_id
         self.geofence = Unknown.REGULAR
+        self.geofence_list = []
         self.custom_dts = {}
+        self.channel_id = Unknown.REGULAR
 
     def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
@@ -92,6 +94,8 @@ class EggEvent(BaseEvent):
             'applemaps': get_applemaps_link(self.lat, self.lng),
             'waze': get_waze_link(self.lat, self.lng),
             'geofence': self.geofence,
+            'geofence_list': self.geofence_list,
+            'channel_id': self.channel_id,
             'weather_id': self.weather_id,
             'weather': weather_name,
             'weather_or_empty': Unknown.or_empty(weather_name),
@@ -105,6 +109,7 @@ class EggEvent(BaseEvent):
             'gym_description': self.gym_description,
             'gym_image': self.gym_image,
             'sponsor_id': self.sponsor_id,
+            'gym_sponsor_phrase': ("\nSponsored Gym" if Unknown.or_empty(self.sponsor_id) else ""),
             'sponsored':
                 self.sponsor_id > 0
                 if Unknown.is_not(self.sponsor_id) else Unknown.REGULAR,
@@ -112,6 +117,7 @@ class EggEvent(BaseEvent):
                 self.ex_eligible > 0 if Unknown.is_not(self.ex_eligible)
                 else Unknown.REGULAR,
             'park': self.park,
+            'gym_park_phrase': ("\n***Possible EX Raid Location (" + self.park + ")***" if Unknown.or_empty(self.park) else ""),
             'team_id': self.current_team_id,
             'team_name': locale.get_team_name(self.current_team_id),
             'team_leader': locale.get_leader_name(self.current_team_id)

@@ -1,8 +1,9 @@
 # Standard Library Imports
+from datetime import datetime
 # 3rd Party Imports
 # Local Imports
 from PokeAlarm.Utils import get_gmaps_link, get_applemaps_link, \
-    get_dist_as_str, get_weather_emoji, get_waze_link
+    get_dist_as_str, get_weather_emoji, get_waze_link, get_time_as_str
 from . import BaseEvent
 from PokeAlarm import Unknown
 
@@ -13,33 +14,55 @@ class WeatherEvent(BaseEvent):
     def __init__(self, data):
         """ Creates a new Weather Event based on the given dict. """
         super(WeatherEvent, self).__init__('weather')
+        check_for_none = BaseEvent.check_for_none
 
         # Identification
         self.s2_cell_id = data.get('s2_cell_id')
+        self.alert_type = 'weather'
+
+        # Time of weather change
+        self.time_changed = datetime.utcfromtimestamp(
+            data.get('time_changed'))
 
         # Location
         self.lat = float(data['latitude'])  # To the center of the cell
         self.lng = float(data['longitude'])
         self.distance = Unknown.SMALL  # Completed by Manager
         self.direction = Unknown.TINY  # Completed by Manager
+        # S2 Cell vertices coordinates
+        self.coords = data.get('coords')
 
         # Weather Info
-        self.weather_id = data.get('condition') or data.get('gameplay_weather')
-        self.severity_id = data.get('alert_severity') or data.get('severity')
-        self.day_or_night_id = data.get('day') or data.get('world_time')
+        self.weather_id = check_for_none(
+            int, data.get('condition') or data.get('gameplay_weather'), Unknown.SMALL)
+        self.severity_id = check_for_none(
+            int, data.get('alert_severity') or data.get('severity'), Unknown.SMALL)
+        self.day_or_night_id = check_for_none(
+            int, data.get('day') or data.get('world_time'), Unknown.SMALL)
 
         self.name = self.s2_cell_id
         self.geofence = Unknown.REGULAR
+        self.geofence_list = []
         self.custom_dts = {}
+        self.channel_id = Unknown.REGULAR
 
     def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
         weather_name = locale.get_weather_name(self.weather_id)
         severity_locale = locale.get_severity_name(self.severity_id)
+        time_changed = get_time_as_str(self.time_changed)
         dts = self.custom_dts.copy()
         dts.update({
             # Identification
             's2_cell_id': self.s2_cell_id,
+
+            # Time Remaining
+            '12h_time_weather_changed': time_changed[1],
+            '24h_time_weather_changed': time_changed[2],
+
+            # Location
+            'coords': self.coords,
+            'channel_id': self.channel_id,
 
             # Location - center of the s2 cell
             'lat': self.lat,
@@ -54,6 +77,7 @@ class WeatherEvent(BaseEvent):
             'applemaps': get_applemaps_link(self.lat, self.lng),
             'geofence': self.geofence,
             'waze': get_waze_link(self.lat, self.lng),
+            'geofence_list': self.geofence_list,
 
             # Weather Info
             'weather_id': self.weather_id,

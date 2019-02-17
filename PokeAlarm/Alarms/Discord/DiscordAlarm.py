@@ -96,8 +96,7 @@ class DiscordAlarm(Alarm):
     def __init__(self, mgr, settings, max_attempts, static_map_key):
         self._log = mgr.get_child_logger("alarms")
         # Required Parameters
-        self.__webhook_url = require_and_remove_key(
-            'webhook_url', settings, "'Discord' type alarms.")
+        self.__webhook_url = "https://discordapp.com/api/webhooks/<channel_id>"
         self.__max_attempts = max_attempts
 
         # Optional Alarm Parameters

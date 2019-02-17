@@ -121,7 +121,9 @@ class MonEvent(BaseEvent):
         # Correct this later
         self.name = self.monster_id
         self.geofence = Unknown.REGULAR
+        self.geofence_list = []
         self.custom_dts = {}
+        self.channel_id = Unknown.REGULAR
 
     def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
@@ -168,6 +170,8 @@ class MonEvent(BaseEvent):
             'applemaps': get_applemaps_link(self.lat, self.lng),
             'waze': get_waze_link(self.lat, self.lng),
             'geofence': self.geofence,
+            'geofence_list': self.geofence_list,
+            'channel_id': self.channel_id,
 
             # Weather
             'weather_id': self.weather_id,
@@ -184,6 +188,10 @@ class MonEvent(BaseEvent):
             'boosted_or_empty': locale.get_boosted_text() if \
                 Unknown.is_not(self.boosted_weather_id) and
                 self.boosted_weather_id != 0 else '',
+            'boosted_weather_phrase_or_empty': (
+                "\nBoosted by {} weather".format(boosted_weather_name) if \
+                Unknown.is_not(self.boosted_weather_id) and
+                self.boosted_weather_id != 0 else ''),
 
             # Encounter Stats
             'mon_lvl': self.mon_lvl,
