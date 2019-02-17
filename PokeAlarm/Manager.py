@@ -1,8 +1,10 @@
 # Standard Library Imports
+import json
 import logging
 import logging.handlers
 import os
 import re
+import sys
 import traceback
 from collections import OrderedDict, namedtuple
 from datetime import datetime, timedelta
@@ -11,6 +13,7 @@ from datetime import datetime, timedelta
 import gevent
 from gevent.queue import Queue
 from gevent.event import Event
+import itertools
 
 # Local Imports
 import Alarms
@@ -23,14 +26,15 @@ from LocationServices import GMaps
 from PokeAlarm import Unknown
 from PokeAlarm.Utilities.Logging import ContextFilter, setup_file_handler
 from PokeAlarm.Utilities.GenUtils import parse_bool
-from Utils import (get_earth_dist, get_path, get_cardinal_dir)
+from Utils import (get_earth_dist, get_path, require_and_remove_key,
+                   parse_boolean, get_cardinal_dir)
 from . import config
 Rule = namedtuple('Rule', ['filter_names', 'alarm_names'])
 
 
 class Manager(object):
     def __init__(self, name, google_key, locale, units, timezone, time_limit,
-                 max_attempts, location, cache_type, geofence_file, debug):
+                 max_attempts, location, cache_type, geofence_file, debug, channel_id_file):
         # Set the name of the Manager
         self.name = str(name).lower()
         self._log = self._create_logger(self.name)
@@ -79,6 +83,11 @@ class Manager(object):
         self.geofences = None
         if str(geofence_file).lower() != 'none':
             self.geofences = load_geofence_file(get_path(geofence_file))
+
+        # Load in the file to get discord API key from geofence/filter-set
+        self.channel_id = {}
+        self.load_channel_id_file(get_path(channel_id_file))
+
         # Create the alarms to send notifications out with
         self._alarms = {}
         self._max_attempts = int(max_attempts)  # TODO: Move to alarm level
@@ -465,6 +474,37 @@ class Manager(object):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MANAGER LOADING ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+    def load_channel_id_file(self, file_path):
+        log.info("Loading API keys from the file at {}".format(file_path))
+        try:
+            with open(file_path, 'r') as f:
+                self.channel_id = json.load(f)
+            if type(self.channel_id) is not dict:
+                log.critical("API key file must be a dict objects "
+                             + "- { {...}, {...}, ... {...} }")
+                sys.exit(1)
+            log.info("API Key file found")
+            return  # all done
+        except ValueError as e:
+            log.error("Encountered error while loading API key file: "
+                      + "{}: {}".format(type(e).__name__, e))
+            log.error(
+                "PokeAlarm has encountered a 'ValueError' while loading the "
+                + " API key file. This typically means your file isn't in the "
+                + "correct json format. Try loading your file contents into"
+                + " a json validator.")
+        except IOError as e:
+            log.error("Encountered error while loading API key: "
+                      + "{}: {}".format(type(e).__name__, e))
+            log.error("PokeAlarm was unable to find a api key file "
+                      + "at {}. Please check that this file".format(file_path)
+                      + " exists and PA has read permissions.")
+        except Exception as e:
+            log.error("Encountered error while loading api key: "
+                      + "{}: {}".format(type(e).__name__, e))
+        log.debug("Stack trace: \n {}".format(traceback.format_exc()))
+        sys.exit(1)
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ HANDLE EVENTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -609,6 +649,59 @@ class Manager(object):
         for thread in threads:  # Wait for all alarms to finish
             thread.join()
 
+    def _check_filters_notify(self, event, filter_set, filter_names, alarm_names, func_name):
+        for name in filter_names:
+            f = filter_set.get(name)
+            # Filter should always exist, but sanity check anyway
+            if f:
+                # If the Event passes, return True
+                if f.check_event(event):
+                    event.custom_dts = f.custom_dts
+                    for geofence_name in event.geofence_list:
+                        if not self.get_channel_id(event, name, geofence_name):
+                            self._log.debug("No API key set for {} event"
+                                      " notification for geofence: {},"
+                                      " filter set: {}!"
+                                      "".format(func_name, geofence_name, name))
+                            continue
+                        event.custom_dts = f.custom_dts
+                        event.geofence = event.geofence_list[0] if geofence_name not in self.geofences.iterkeys() else geofence_name
+                        self._log.info("{} event notification"
+                            " for geofence: {}, filter set: {} channel: {}!"
+                            "".format(event.name, geofence_name, name, event.channel_id))
+
+                        """ Function for triggering notifications to alarms. """
+                        # Generate the DTS for the event
+                        dts = event.generate_dts(self.__locale, self.__timezone, self.__units)
+
+                        # Get GMaps Triggers
+                        if self._gmaps_reverse_geocode:
+                            dts.update(self._gmaps_service.reverse_geocode(
+                                (event.lat, event.lng), self._language))
+                        for mode in self._gmaps_distance_matrix:
+                            dts.update(self._gmaps_service.distance_matrix(
+                                mode, (event.lat, event.lng), self.__location,
+                                self._language, self.__units))
+
+                        # Spawn notifications in threads so they can work asynchronously
+                        threads = []
+                        for name in alarm_names:
+                            alarm = self._alarms.get(name)
+                            if not alarm:
+                                self._log.critical("ERROR: No alarm named %s found!", name)
+                                continue
+                            func = getattr(alarm, func_name)
+                            threads.append(gevent.spawn(func, dts))
+
+                        for thread in threads:  # Wait for all alarms to finish
+                            thread.join()
+
+
+                else:
+                    self._log.critical("ERROR: No filter named %s found!", name)
+
+
+                self._log.debug("Finished event: %s", event.id)
     # Process new Monster data and decide if a notification needs to be sent
     def process_monster(self, mon):
         # type: (Events.MonEvent) -> None
@@ -645,28 +738,38 @@ class Manager(object):
             mon.direction = get_cardinal_dir(
                 [mon.lat, mon.lng], self.__location)
 
+        # Checks to see which geofences contain the event
+        if not self.match_geofences(mon):
+            log.debug("{} monster was skipped because not in any geofences"
+                      "".format(mon.name))
+            return
+
         # Check for Rules
         rules = self.__mon_rules
         if len(rules) == 0:  # If no rules, default to all
             rules = {
                 "default": Rule(self._mon_filters.keys(), self._alarms.keys())}
 
-        rule_ct, alarm_ct = 0, 0
-        for r_name, rule in rules.iteritems():  # For all rules
-            passed = self._check_filters(
-                mon, self._mon_filters, rule.filter_names)
-            if passed:
-                rule_ct += 1
-                alarm_ct += len(rule.alarm_names)
-                self._notify_alarms(
-                    mon, rule.alarm_names, 'pokemon_alert')
+        # rule_ct, alarm_ct = 0, 0
+        # for r_name, rule in rules.iteritems():  # For all rules
+        #     passed = self._check_filters(
+        #         mon, self._mon_filters, rule.filter_names)
+        #     if passed:
+        #         rule_ct += 1
+        #         alarm_ct += len(rule.alarm_names)
+        #         for geofence_name in mon.geofence_list:
+        #             if not self.get_channel_id(mon, f_name, geofence_name):
 
-        if rule_ct > 0:
-            self._rule_log.info(
-                'Monster %s passed %s rule(s) and triggered %s alarm(s).',
-                mon.name, rule_ct, alarm_ct)
-        else:
-            self._rule_log.info('Monster %s rejected by all rules.', mon.name)
+        # if rule_ct > 0:
+        #     self._rule_log.info(
+        #         'Monster %s passed %s rule(s) and triggered %s alarm(s).',
+        #         mon.name, rule_ct, alarm_ct)
+        # else:
+        #     self._rule_log.info('Monster %s rejected by all rules.', mon.name)
+
+        for r_name, rule in rules.iteritems():  # For all rules
+            self._check_filters_notify(
+                mon, self._mon_filters, rule.filter_names, rule.alarm_names, 'pokemon_alert')
 
     def process_stop(self, stop):
         # type: (Events.StopEvent) -> None
@@ -709,22 +812,26 @@ class Manager(object):
             rules = {"default": Rule(
                 self._stop_filters.keys(), self._alarms.keys())}
 
-        rule_ct, alarm_ct = 0, 0
-        for r_name, rule in rules.iteritems():  # For all rules
-            passed = self._check_filters(
-                stop, self._stop_filters, rule.filter_names)
-            if passed:
-                rule_ct += 1
-                alarm_ct += len(rule.alarm_names)
-                self._notify_alarms(
-                    stop, rule.alarm_names, 'pokestop_alert')
+        # rule_ct, alarm_ct = 0, 0
+        # for r_name, rule in rules.iteritems():  # For all rules
+        #     passed = self._check_filters(
+        #         stop, self._stop_filters, rule.filter_names)
+        #     if passed:
+        #         rule_ct += 1
+        #         alarm_ct += len(rule.alarm_names)
+        #         self._notify_alarms(
+        #             stop, rule.alarm_names, 'pokestop_alert')
 
-        if rule_ct > 0:
-            self._rule_log.info(
-                'Stop %s passed %s rule(s) and triggered %s alarm(s).',
-                stop.name, rule_ct, alarm_ct)
-        else:
-            self._rule_log.info('Stop %s rejected by all rules.', stop.name)
+        # if rule_ct > 0:
+        #     self._rule_log.info(
+        #         'Stop %s passed %s rule(s) and triggered %s alarm(s).',
+        #         stop.name, rule_ct, alarm_ct)
+        # else:
+        #     self._rule_log.info('Stop %s rejected by all rules.', stop.name)
+
+        for r_name, rule in rules.iteritems():  # For all rules
+            self._check_filters_notify(
+                    stop, self._stop_filters, rule.filter_names, rule.alarm_names, 'pokestop_alert')
 
     def process_gym(self, gym):
         # type: (Events.GymEvent) -> None
@@ -770,22 +877,26 @@ class Manager(object):
             rules = {"default": Rule(
                 self._gym_filters.keys(), self._alarms.keys())}
 
-        rule_ct, alarm_ct = 0, 0
-        for r_name, rule in rules.iteritems():  # For all rules
-            passed = self._check_filters(
-                gym, self._gym_filters, rule.filter_names)
-            if passed:
-                rule_ct += 1
-                alarm_ct += len(rule.alarm_names)
-                self._notify_alarms(
-                    gym, rule.alarm_names, 'gym_alert')
+        # rule_ct, alarm_ct = 0, 0
+        # for r_name, rule in rules.iteritems():  # For all rules
+        #     passed = self._check_filters(
+        #         gym, self._gym_filters, rule.filter_names)
+        #     if passed:
+        #         rule_ct += 1
+        #         alarm_ct += len(rule.alarm_names)
+        #         self._notify_alarms(
+        #             gym, rule.alarm_names, 'gym_alert')
 
-        if rule_ct > 0:
-            self._rule_log.info(
-                'Gym %s passed %s rule(s) and triggered %s alarm(s).',
-                gym.name, rule_ct, alarm_ct)
-        else:
-            self._rule_log.info('Gym %s rejected by all rules.', gym.name)
+        # if rule_ct > 0:
+        #     self._rule_log.info(
+        #         'Gym %s passed %s rule(s) and triggered %s alarm(s).',
+        #         gym.name, rule_ct, alarm_ct)
+        # else:
+        #     self._rule_log.info('Gym %s rejected by all rules.', gym.name)
+
+        for r_name, rule in rules.iteritems():  # For all rules
+            self._check_filters_notify(
+                    gym, self._gym_filters, rule.filter_names, rule.alarm_names, 'gym_alert')
 
     def process_egg(self, egg):
         # type: (Events.EggEvent) -> None
@@ -827,28 +938,38 @@ class Manager(object):
             egg.direction = get_cardinal_dir(
                 [egg.lat, egg.lng], self.__location)
 
+        # Checks to see which geofences contain the event
+        if not self.match_geofences(egg):
+            log.debug("{} egg was skipped because not in any geofences"
+                      "".format(egg.name))
+            return
+
         # Check for Rules
         rules = self.__egg_rules
         if len(rules) == 0:  # If no rules, default to all
             rules = {
                 "default": Rule(self._egg_filters.keys(), self._alarms.keys())}
 
-        rule_ct, alarm_ct = 0, 0
-        for r_name, rule in rules.iteritems():  # For all rules
-            passed = self._check_filters(
-                egg, self._egg_filters, rule.filter_names)
-            if passed:
-                rule_ct += 1
-                alarm_ct += len(rule.alarm_names)
-                self._notify_alarms(
-                    egg, rule.alarm_names, 'raid_egg_alert')
+        # rule_ct, alarm_ct = 0, 0
+        # for r_name, rule in rules.iteritems():  # For all rules
+        #     passed = self._check_filters(
+        #         egg, self._egg_filters, rule.filter_names)
+        #     if passed:
+        #         rule_ct += 1
+        #         alarm_ct += len(rule.alarm_names)
+        #         self._notify_alarms(
+        #             egg, rule.alarm_names, 'raid_egg_alert')
 
-        if rule_ct > 0:
-            self._rule_log.info(
-                'Egg %s passed %s rule(s) and triggered %s alarm(s).',
-                egg.name, rule_ct, alarm_ct)
-        else:
-            self._rule_log.info('Egg %s rejected by all rules.', egg.name)
+        # if rule_ct > 0:
+        #     self._rule_log.info(
+        #         'Egg %s passed %s rule(s) and triggered %s alarm(s).',
+        #         egg.name, rule_ct, alarm_ct)
+        # else:
+        #     self._rule_log.info('Egg %s rejected by all rules.', egg.name)
+
+        for r_name, rule in rules.iteritems():  # For all rules
+            self._check_filters_notify(
+                egg, self._egg_filters, rule.filter_names, rule.alarm_names, 'raid_egg_alert')
 
     def process_raid(self, raid):
         # type: (Events.RaidEvent) -> None
@@ -890,28 +1011,38 @@ class Manager(object):
             raid.direction = get_cardinal_dir(
                 [raid.lat, raid.lng], self.__location)
 
+        # Checks to see which geofences contain the event
+        if not self.match_geofences(raid):
+            log.debug("{} raid was skipped because not in any geofences"
+                      "".format(raid.name))
+            return
+
         # Check for Rules
         rules = self.__raid_rules
         if len(rules) == 0:  # If no rules, default to all
             rules = {"default": Rule(
                 self._raid_filters.keys(), self._alarms.keys())}
 
-        rule_ct, alarm_ct = 0, 0
-        for r_name, rule in rules.iteritems():  # For all rules
-            passed = self._check_filters(
-                raid, self._raid_filters, rule.filter_names)
-            if passed:
-                rule_ct += 1
-                alarm_ct += len(rule.alarm_names)
-                self._notify_alarms(
-                    raid, rule.alarm_names, 'raid_alert')
+        # rule_ct, alarm_ct = 0, 0
+        # for r_name, rule in rules.iteritems():  # For all rules
+        #     passed = self._check_filters(
+        #         raid, self._raid_filters, rule.filter_names)
+        #     if passed:
+        #         rule_ct += 1
+        #         alarm_ct += len(rule.alarm_names)
+        #         self._notify_alarms(
+        #             raid, rule.alarm_names, 'raid_alert')
 
-        if rule_ct > 0:
-            self._rule_log.info(
-                'Raid %s passed %s rule(s) and triggered %s alarm(s).',
-                raid.name, rule_ct, alarm_ct)
-        else:
-            self._rule_log.info('Raid %s rejected by all rules.', raid.name)
+        # if rule_ct > 0:
+        #     self._rule_log.info(
+        #         'Raid %s passed %s rule(s) and triggered %s alarm(s).',
+        #         raid.name, rule_ct, alarm_ct)
+        # else:
+        #     self._rule_log.info('Raid %s rejected by all rules.', raid.name)
+
+        for r_name, rule in rules.iteritems():  # For all rules
+            self._check_filters_notify(
+                    raid, self._raid_filters, rule.filter_names, rule.alarm_names, 'raid_alert')
 
     def process_weather(self, weather):
         # type: (Events.WeatherEvent) -> None
@@ -954,29 +1085,39 @@ class Manager(object):
                 weather.day_or_night_id)
             return
 
+        # Checks to see which geofences contain the event
+        if not self.match_weather_geofences(weather):
+            log.debug("{} weather was skipped because not in any geofences"
+                      "".format(weather.name))
+            return
+
         # Check for Rules
         rules = self.__weather_rules
         if len(rules) == 0:  # If no rules, default to all
             rules = {"default": Rule(
                 self._weather_filters.keys(), self._alarms.keys())}
 
-        rule_ct, alarm_ct = 0, 0
-        for r_name, rule in rules.iteritems():  # For all rules
-            passed = self._check_filters(
-                weather, self._weather_filters, rule.filter_names)
-            if passed:
-                rule_ct += 1
-                alarm_ct += len(rule.alarm_names)
-                self._notify_alarms(
-                    weather, rule.alarm_names, 'weather_alert')
+        # rule_ct, alarm_ct = 0, 0
+        # for r_name, rule in rules.iteritems():  # For all rules
+        #     passed = self._check_filters(
+        #         weather, self._weather_filters, rule.filter_names)
+        #     if passed:
+        #         rule_ct += 1
+        #         alarm_ct += len(rule.alarm_names)
+        #         self._notify_alarms(
+        #             weather, rule.alarm_names, 'weather_alert')
 
-        if rule_ct > 0:
-            self._rule_log.info(
-                'Weather %s passed %s rule(s) and triggered %s alarm(s).',
-                weather.name, rule_ct, alarm_ct)
-        else:
-            self._rule_log.info(
-                'Weather %s rejected by all rules.', weather.name)
+        # if rule_ct > 0:
+        #     self._rule_log.info(
+        #         'Weather %s passed %s rule(s) and triggered %s alarm(s).',
+        #         weather.name, rule_ct, alarm_ct)
+        # else:
+        #     self._rule_log.info(
+        #         'Weather %s rejected by all rules.', weather.name)
+
+        for r_name, rule in rules.iteritems():  # For all rules
+            self._check_filters_notify(
+                weather, self._weather_filters, rule.filter_names, rule.alarm_names, 'weather_alert')
 
     def process_quest(self, quest):
         # type: (Events.QuestEvent) -> None
@@ -1015,29 +1156,39 @@ class Manager(object):
         # Update cache info
         self.__cache.quest_reward(quest.stop_id, quest.reward, quest.quest)
 
+        # Checks to see which geofences contain the event
+        if not self.match_geofences(quest):
+            log.debug("{} quest was skipped because not in any geofences"
+                      "".format(quest.name))
+            return
+
         # Check for Rules
         rules = self.__quest_rules
         if len(rules) == 0:  # If no rules, default to all
             rules = {"default": Rule(
                 self._quest_filters.keys(), self._alarms.keys())}
 
-        rule_ct, alarm_ct = 0, 0
-        for r_name, rule in rules.iteritems():  # For all rules
-            passed = self._check_filters(
-                quest, self._quest_filters, rule.filter_names)
-            if passed:
-                rule_ct += 1
-                alarm_ct += len(rule.alarm_names)
-                self._notify_alarms(
-                    quest, rule.alarm_names, 'quest_alert')
+        # rule_ct, alarm_ct = 0, 0
+        # for r_name, rule in rules.iteritems():  # For all rules
+        #     passed = self._check_filters(
+        #         quest, self._quest_filters, rule.filter_names)
+        #     if passed:
+        #         rule_ct += 1
+        #         alarm_ct += len(rule.alarm_names)
+        #         self._notify_alarms(
+        #             quest, rule.alarm_names, 'quest_alert')
 
-        if rule_ct > 0:
-            self._rule_log.info(
-                'Quest %s passed %s rule(s) and triggered %s alarm(s).',
-                quest.name, rule_ct, alarm_ct)
-        else:
-            self._rule_log.info(
-                'Quest %s rejected by all rules.', quest.name)
+        # if rule_ct > 0:
+        #     self._rule_log.info(
+        #         'Quest %s passed %s rule(s) and triggered %s alarm(s).',
+        #         quest.name, rule_ct, alarm_ct)
+        # else:
+        #     self._rule_log.info(
+        #         'Quest %s rejected by all rules.', quest.name)
+
+        for r_name, rule in rules.iteritems():  # For all rules
+            self._check_filters_notify(
+                    quest, self._quest_filters, rule.filter_names, rule.alarm_names, 'quest_alert')
 
     # Check to see if a notification is within the given range
     # TODO: Move this into filters and add unit tests
@@ -1062,5 +1213,86 @@ class Manager(object):
                 self._log.debug("%s not in %s.", e.name, name)
         self._log.debug("%s rejected from filter by geofences.", e.name)
         return False
+
+    # Check to see if a notification is within the given range
+    def match_geofences(self, e):
+        """ Returns true if the event passes the filter's geofences. """
+        if self.geofences is None:  # No geofences set (Improve here)
+            return False
+        for name in self.geofences.iterkeys():
+            gf = self.geofences.get(name)
+            if not gf:  # gf doesn't exist
+                log.error("Cannot check geofence %s: does not exist!", name)
+            elif gf.contains(e.lat, e.lng):  # e in gf
+                gf_name = gf.get_name()
+                log.debug("{} is in geofence {}!".format(
+                    e.name, gf_name))
+                e.geofence_list.append(gf_name)  # Set the geofence for dts
+                if "-" in gf_name and gf_name.split('-')[0] not in e.geofence_list:
+                    e.geofence_list.append(gf_name.split('-')[0])
+            else:  # e not in gf
+                log.debug("%s not in %s.", e.name, name)
+        if not e.geofence_list:
+            return False
+        else:
+            e.geofence_list.append('All')
+        return True
+
+# Check to see if a weather notification s2 cell
+# overlaps with a given range (geofence)
+    def check_weather_geofences(self, f, weather):
+        """ Returns true if the event passes the filter's geofences. """
+        if self.geofences is None or f.geofences is None:  # No geofences set
+            return True
+        targets = f.geofences
+        if len(targets) == 1 and "all" in targets:
+            targets = self.geofences.iterkeys()
+        for name in targets:
+            gf = self.geofences.get(name)
+            if not gf:  # gf doesn't exist
+                log.error("Cannot check geofence %s: does not exist!", name)
+            elif gf.check_overlap(weather):  # weather cell overlaps gf
+                log.debug("{} is in geofence {}!".format(
+                    weather.weather_cell_id, gf.get_name()))
+                weather.geofence = name  # Set the geofence for dts
+                return True
+            else:  # weather not in gf
+                log.debug("%s not in %s.", weather.weather_cell_id, name)
+        f.reject(weather, "not in geofences")
+        return False
+
+    def match_weather_geofences(self, e):
+        """ Returns true if the event passes the filter's geofences. """
+        if self.geofences is None:  # No geofences set (Improve here)
+            return False
+        for name in self.geofences.iterkeys():
+            gf = self.geofences.get(name)
+            if not gf:  # gf doesn't exist
+                log.error("Cannot check geofence %s: does not exist!", name)
+            elif gf.check_overlap(e):  # e in gf
+                gf_name = gf.get_name()
+                log.debug("{} is in geofence {}!".format(
+                    e.name, gf_name))
+                e.geofence_list.append(gf_name)  # Set the geofence for dts
+                if "-" in gf_name and gf_name.split('-')[0] not in e.geofence_list:
+                    e.geofence_list.append(gf_name.split('-')[0])
+            else:  # e not in gf
+                log.debug("%s not in %s.", e.name, name)
+        if not e.geofence_list:
+            return False
+        else:
+            e.geofence_list.append('All')
+        return True
+
+    def get_channel_id(self, e, filter_name, geofence_name):
+        try:
+            api_filter_name = filter_name.split('-')[0]
+            e.channel_id = self.channel_id[geofence_name][api_filter_name]
+            return True
+        except KeyError:
+            log.debug("error in geofence: %s filter: %s.", geofence_name, api_filter_name)
+            return False
+
+
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

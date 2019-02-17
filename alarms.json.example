@@ -1,8 +1,7 @@
 {
   "discord_alarm":{
     "active":false,
-    "type":"discord",
-    "webhook_url":"YOUR_WEBHOOK_URL"
+    "type":"discord"
   },
   "facebook_alarm":{
     "active":false,
