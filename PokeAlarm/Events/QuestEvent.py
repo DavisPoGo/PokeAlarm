@@ -36,6 +36,8 @@ class QuestEvent(BaseEvent):
         self.name = self.stop_id
         self.geofence = Unknown.REGULAR
         self.custom_dts = {}
+        self.geofence_list = []
+        self.channel_id = Unknown.REGULAR
 
         # Quest Details
         self.quest = data['quest']
@@ -73,6 +75,8 @@ class QuestEvent(BaseEvent):
             'applemaps': get_applemaps_link(self.lat, self.lng),
             'waze': get_waze_link(self.lat, self.lng),
             'geofence': self.geofence,
+            'geofence_list': self.geofence_list,
+            'channel_id': self.channel_id,
             # Quest Details
             'quest': self.quest,
             'reward': self.reward,
