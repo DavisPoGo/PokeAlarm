@@ -5,6 +5,7 @@ import logging
 import time
 import json
 import traceback
+import itertools
 # 3rd Party Imports
 import requests
 from requests.packages.urllib3.util.retry import Retry
@@ -27,7 +28,7 @@ class GMaps(object):
     _warning_window = timedelta(minutes=1)
 
     def __init__(self, api_key):
-        self._key = api_key
+        self._key = itertools.cycle(api_key)
         self._lock = Semaphore
 
         # Create a session to handle connections
@@ -88,7 +89,7 @@ class GMaps(object):
         # Add in the API key
         if params is None:
             params = {}
-        params['key'] = self._key
+        params['key'] = next(self._key)
 
         # Use the session to send the request
         log.debug(u'{} request sending.'.format(service))

@@ -43,13 +43,8 @@ class Manager(object):
         self.__debug = debug
 
         # Get the Google Maps AP# TODO: Improve error checking
-        self._google_key = None
-        self._gmaps_service = None
-        if str(google_key).lower() != 'none':
-            self._google_key = google_key
-            self._gmaps_service = GMaps(google_key)
-        self._gmaps_reverse_geocode = False
-        self._gmaps_distance_matrix = set()
+        self._google_key = google_key
+        self._gmaps_service = GMaps(google_key)
 
         self._language = locale
         self.__locale = Locale(locale)  # Setup the language-specific stuff

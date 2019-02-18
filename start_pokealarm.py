@@ -211,8 +211,8 @@ def parse_settings(root_path):
 
     # GMaps
     parser.add_argument(
-        '-k', '--gmaps-key', type=parse_unicode, action='append',
-        default=[None], help='Specify a Google API Key to use.')
+        '-k', '--gmaps-key', type=str, action='append', default=[],
+        help='Specify a Google API Key to use.')
     parser.add_argument(
         '--gmaps-rev-geocode', type=parse_boolean, action='append',
         default=[None], help='Enable Walking Distance Matrix DTS.')
@@ -287,7 +287,7 @@ def parse_settings(root_path):
     config['DEBUG'] = args.debug
 
     # Check to make sure that the same number of arguments are included
-    for arg in [args.gmaps_key, args.filters, args.alarms, args.rules,
+    for arg in [args.filters, args.alarms, args.rules,
                 args.geofences, args.location, args.locale, args.units,
                 args.cache_type, args.timelimit, args.max_attempts,
                 args.timezone, args.gmaps_rev_geocode, args.gmaps_dm_walk,
@@ -330,8 +330,7 @@ def parse_settings(root_path):
         config['UNITS'] = get_from_list(args.units, m_ct, args.units[0])
         m = Manager(
             name=args.manager_name[m_ct],
-            google_key=get_from_list(
-                args.gmaps_key, m_ct, args.gmaps_key[0]),
+            google_key=args.key,
             locale=get_from_list(args.locale, m_ct, args.locale[0]),
             units=get_from_list(args.units, m_ct, args.units[0]),
             timezone=get_from_list(args.timezone, m_ct, args.timezone[0]),
