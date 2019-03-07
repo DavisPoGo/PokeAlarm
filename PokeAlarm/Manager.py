@@ -45,6 +45,7 @@ class Manager(object):
         # Get the Google Maps AP# TODO: Improve error checking
         self._google_key = google_key
         self._gmaps_service = GMaps(google_key)
+        self._gmaps_distance_matrix = set()
 
         self._language = locale
         self.__locale = Locale(locale)  # Setup the language-specific stuff
@@ -470,34 +471,34 @@ class Manager(object):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MANAGER LOADING ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def load_channel_id_file(self, file_path):
-        log.info("Loading API keys from the file at {}".format(file_path))
+        self._log.info("Loading API keys from the file at {}".format(file_path))
         try:
             with open(file_path, 'r') as f:
                 self.channel_id = json.load(f)
             if type(self.channel_id) is not dict:
-                log.critical("API key file must be a dict objects "
+                self._log.critical("API key file must be a dict objects "
                              + "- { {...}, {...}, ... {...} }")
                 sys.exit(1)
-            log.info("API Key file found")
+            self._log.info("API Key file found")
             return  # all done
         except ValueError as e:
-            log.error("Encountered error while loading API key file: "
+            self._log.error("Encountered error while loading API key file: "
                       + "{}: {}".format(type(e).__name__, e))
-            log.error(
+            self._log.error(
                 "PokeAlarm has encountered a 'ValueError' while loading the "
                 + " API key file. This typically means your file isn't in the "
                 + "correct json format. Try loading your file contents into"
                 + " a json validator.")
         except IOError as e:
-            log.error("Encountered error while loading API key: "
+            self._log.error("Encountered error while loading API key: "
                       + "{}: {}".format(type(e).__name__, e))
-            log.error("PokeAlarm was unable to find a api key file "
+            self._log.error("PokeAlarm was unable to find a api key file "
                       + "at {}. Please check that this file".format(file_path)
                       + " exists and PA has read permissions.")
         except Exception as e:
-            log.error("Encountered error while loading api key: "
+            self._log.error("Encountered error while loading api key: "
                       + "{}: {}".format(type(e).__name__, e))
-        log.debug("Stack trace: \n {}".format(traceback.format_exc()))
+        self._log.debug("Stack trace: \n {}".format(traceback.format_exc()))
         sys.exit(1)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -653,11 +654,15 @@ class Manager(object):
                 if f.check_event(event):
                     event.custom_dts = f.custom_dts
                     for geofence_name in event.geofence_list:
+                        self._log.debug("Checking API key set for {} event"
+                                      " notification for geofence: {},"
+                                      " filter set: {}!"
+                                      "".format(event.name, geofence_name, name))
                         if not self.get_channel_id(event, name, geofence_name):
                             self._log.debug("No API key set for {} event"
                                       " notification for geofence: {},"
                                       " filter set: {}!"
-                                      "".format(func_name, geofence_name, name))
+                                      "".format(event.name, geofence_name, name))
                             continue
                         event.custom_dts = f.custom_dts
                         event.geofence = event.geofence_list[0] if geofence_name not in self.geofences.iterkeys() else geofence_name
@@ -680,23 +685,23 @@ class Manager(object):
 
                         # Spawn notifications in threads so they can work asynchronously
                         threads = []
-                        for name in alarm_names:
-                            alarm = self._alarms.get(name)
+                        for a_name in alarm_names:
+                            alarm = self._alarms.get(a_name)
                             if not alarm:
-                                self._log.critical("ERROR: No alarm named %s found!", name)
+                                self._log.critical("ERROR: No alarm named %s found!", a_name)
                                 continue
                             func = getattr(alarm, func_name)
                             threads.append(gevent.spawn(func, dts))
 
                         for thread in threads:  # Wait for all alarms to finish
                             thread.join()
-
-
                 else:
-                    self._log.critical("ERROR: No filter named %s found!", name)
+                    self._log.debug("Does not match filter named %s!", name)
+            else:
+                self._log.critical("ERROR: No filter named %s found!", name)
 
 
-                self._log.debug("Finished event: %s", event.id)
+        self._log.debug("Finished event: %s", event.id)
     # Process new Monster data and decide if a notification needs to be sent
     def process_monster(self, mon):
         # type: (Events.MonEvent) -> None
@@ -735,7 +740,7 @@ class Manager(object):
 
         # Checks to see which geofences contain the event
         if not self.match_geofences(mon):
-            log.debug("{} monster was skipped because not in any geofences"
+            self._log.critical("{} monster was skipped because not in any geofences"
                       "".format(mon.name))
             return
 
@@ -935,7 +940,7 @@ class Manager(object):
 
         # Checks to see which geofences contain the event
         if not self.match_geofences(egg):
-            log.debug("{} egg was skipped because not in any geofences"
+            self._log.debug("{} egg was skipped because not in any geofences"
                       "".format(egg.name))
             return
 
@@ -1008,7 +1013,7 @@ class Manager(object):
 
         # Checks to see which geofences contain the event
         if not self.match_geofences(raid):
-            log.debug("{} raid was skipped because not in any geofences"
+            self._log.debug("{} raid was skipped because not in any geofences"
                       "".format(raid.name))
             return
 
@@ -1085,7 +1090,7 @@ class Manager(object):
 
         # Checks to see which geofences contain the event
         if not self.match_weather_geofences(weather):
-            log.debug("{} weather was skipped because not in any geofences"
+            self._log.debug("{} weather was skipped because not in any geofences"
                       "".format(weather.name))
             return
 
@@ -1156,7 +1161,7 @@ class Manager(object):
 
         # Checks to see which geofences contain the event
         if not self.match_geofences(quest):
-            log.debug("{} quest was skipped because not in any geofences"
+            self._log.debug("{} quest was skipped because not in any geofences"
                       "".format(quest.name))
             return
 
@@ -1220,10 +1225,10 @@ class Manager(object):
         for name in self.geofences.iterkeys():
             gf = self.geofences.get(name)
             if not gf:  # gf doesn't exist
-                log.error("Cannot check geofence %s: does not exist!", name)
+                self._log.error("Cannot check geofence %s: does not exist!", name)
             elif gf.contains(e.lat, e.lng):  # e in gf
                 gf_name = gf.get_name()
-                log.debug("{} is in geofence {}!".format(
+                self._log.debug("{} is in geofence {}!".format(
                     e.name, gf_name))
                 e.geofence_list.append(gf_name)  # Set the geofence for dts
                 e.geofence_list.append('All')
@@ -1231,7 +1236,7 @@ class Manager(object):
                     e.geofence_list.append(gf_name.split('-')[1])
                 return True
             else:  # e not in gf
-                log.debug("%s not in %s.", e.name, name)
+                self._log.debug("%s not in %s.", e.name, name)
         return False
 
 # Check to see if a weather notification s2 cell
@@ -1246,14 +1251,14 @@ class Manager(object):
         for name in targets:
             gf = self.geofences.get(name)
             if not gf:  # gf doesn't exist
-                log.error("Cannot check geofence %s: does not exist!", name)
+                self._log.error("Cannot check geofence %s: does not exist!", name)
             elif gf.check_overlap(weather):  # weather cell overlaps gf
-                log.debug("{} is in geofence {}!".format(
+                self._log.debug("{} is in geofence {}!".format(
                     weather.weather_cell_id, gf.get_name()))
                 weather.geofence = name  # Set the geofence for dts
                 return True
             else:  # weather not in gf
-                log.debug("%s not in %s.", weather.weather_cell_id, name)
+                self._log.debug("%s not in %s.", weather.weather_cell_id, name)
         f.reject(weather, "not in geofences")
         return False
 
@@ -1264,19 +1269,19 @@ class Manager(object):
         for name in self.geofences.iterkeys():
             gf = self.geofences.get(name)
             if not gf:  # gf doesn't exist
-                log.error("Cannot check geofence %s: does not exist!", name)
+                self._log.error("Cannot check geofence %s: does not exist!", name)
             elif gf.get_name().split('-')[-1] not in weather.geofence_list:
                 if gf.check_overlap(weather):  # weather cell overlaps gf
                     gf_name = gf.get_name()
-                    log.debug("{} is in geofence {}!".format(
+                    self._log.debug("{} is in geofence {}!".format(
                         weather.name, gf_name))
                     weather.geofence_list.append(gf_name)  # Set the geofence for dts
                     if "-" in gf_name:
                         weather.geofence_list.append(gf_name.split('-')[1])
                 else:  # weather not in gf
-                    log.debug("%s not in %s.", weather.name, name)
+                    self._log.debug("%s not in %s.", weather.name, name)
             else:  # weather matched parent
-                log.debug("%s  %s Already matched parent area", weather.name, name)
+                self._log.debug("%s  %s Already matched parent area", weather.name, name)
         if not weather.geofence_list:
             return False
         else:
@@ -1289,7 +1294,7 @@ class Manager(object):
             e.channel_id = self.channel_id[geofence_name][api_filter_name]
             return True
         except KeyError:
-            log.debug("error in geofence: %s filter: %s.", geofence_name, api_filter_name)
+            self._log.debug("error in geofence: %s filter: %s.", geofence_name, api_filter_name)
             return False
 
 
