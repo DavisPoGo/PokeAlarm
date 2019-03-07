@@ -330,7 +330,7 @@ def parse_settings(root_path):
         config['UNITS'] = get_from_list(args.units, m_ct, args.units[0])
         m = Manager(
             name=args.manager_name[m_ct],
-            google_key=args.key,
+            google_key=args.gmaps_key,
             locale=get_from_list(args.locale, m_ct, args.locale[0]),
             units=get_from_list(args.units, m_ct, args.units[0]),
             timezone=get_from_list(args.timezone, m_ct, args.timezone[0]),

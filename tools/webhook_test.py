@@ -7,6 +7,15 @@ import os
 import portalocker
 import pickle
 from random import randint
+from glob import glob
+
+def get_path(path):
+    path = os.path.join(ROOT_PATH, path)
+    if not os.path.exists(path):
+        print 'The webhook_test.py file has moved from the PokeAlarm/tools' + \
+              ' folder!\nPlease put it back or re-download PokeAlarm.'
+        sys.exit(1)
+    return path
 
 
 truthy = frozenset([
@@ -129,8 +138,8 @@ def set_init(webhook_type):
                 "park": None,
                 "sponsor": 4,
                 "level": 5,
-                "latitude": 38.414232, 
-                "longitude": -121.379004
+                "latitude": 38.556814, 
+                "longitude": -121.725527
             }
         }
     elif webhook_type == whtypes["5"]:
@@ -149,8 +158,8 @@ def set_init(webhook_type):
                 "move_1": 123,
                 "move_2": 123,
                 "level": 5,
-                "latitude": 38.414232, 
-                "longitude": -121.379004,
+                "latitude": 38.556814, 
+                "longitude": -121.725527,
                 "weather": 0
             }
         }
@@ -166,6 +175,7 @@ def set_init(webhook_type):
                 'gameplay_weather': randint(1, 6),
                 'severity': 0,
                 'world_time': 1,
+            }
         }
     elif webhook_type == whtypes["7"]:
         payloadr = {
@@ -317,7 +327,7 @@ def get_and_validate_team():
         print "Team invalid, defaulting to Neutral"
         team = 0
     else:
-        for team_id, team_name in teams.iteritems():
+        for team_id, team_name in data['teams'].iteritems():
             if team_name == team:
                 team = int(team_id)
     payload["message"]["team_id"] = team
