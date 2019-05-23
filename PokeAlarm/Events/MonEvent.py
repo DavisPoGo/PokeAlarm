@@ -27,6 +27,7 @@ class MonEvent(BaseEvent):
 
         # Time Left
         self.disappear_time = datetime.utcfromtimestamp(data['disappear_time'])
+        self.disappear_time_verified = bool(data['disappear_time_verified'])
         self.time_left = get_seconds_remaining(self.disappear_time)
 
         # Spawn Data
@@ -157,6 +158,9 @@ class MonEvent(BaseEvent):
             'time_left_raw_hours': time[6],
             'time_left_raw_minutes': time[7],
             'time_left_raw_seconds': time[8],
+            'despawn_verified': 
+                ' (verified)' if self.disappear_time_verified
+                else ' (estimate)',
 
             # Spawn Data
             'spawn_start': self.spawn_start,
