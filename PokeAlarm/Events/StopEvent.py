@@ -18,6 +18,9 @@ class StopEvent(BaseEvent):
         # Identification
         self.stop_id = data['pokestop_id']
 
+        # Lure Type
+        self.lure_id = data['lure_id']
+
         # Time left
         self.expiration = data['lure_expiration']
         self.time_left = None
@@ -45,6 +48,10 @@ class StopEvent(BaseEvent):
         dts.update({
             # Identification
             'stop_id': self.stop_id,
+
+            # Lure Type
+            'lure_id': self.lure_id,
+            'lure_name': locale.get_lure_type_name(self.lure_id),
 
             # Time left
             'time_left': time[0],

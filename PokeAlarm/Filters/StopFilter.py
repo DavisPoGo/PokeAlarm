@@ -3,6 +3,7 @@ import operator
 # 3rd Party Imports
 # Local Imports
 from . import BaseFilter
+from PokeAlarm.Utilities import GymUtils as StopUtils
 
 
 class StopFilter(BaseFilter):
@@ -29,6 +30,12 @@ class StopFilter(BaseFilter):
             # f.max_time_left >= r.time_left
             event_attribute='time_left', eval_func=operator.ge,
             limit=BaseFilter.parse_as_type(int, 'max_time_left', data))
+
+        # Lure name
+        self.lure_name_contains = self.evaluate_attribute(  # f.ln matches s.ln
+            event_attribute='lure_name', eval_func=StopUtils.match_regex_dict,
+            limit=BaseFilter.parse_as_set(
+                StopUtils.create_regex, 'lure_name', data))
 
         # Geofences
         self.geofences = BaseFilter.parse_as_list(str, 'geofences', data)
