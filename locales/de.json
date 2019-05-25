@@ -225,6 +225,12 @@
     "001": "Blanche", 
     "002": "Candela", 
     "003": "Spark"
+  },
+  "lure_types": {
+    "501": "Regular",
+    "502": "Glacial",
+    "503": "Mossy",
+    "504": "Magnetic"
   }, 
   "misc": {
     "boosted": "verst\u00e4rktes"
