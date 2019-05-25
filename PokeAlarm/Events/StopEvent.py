@@ -51,7 +51,7 @@ class StopEvent(BaseEvent):
 
             # Lure Type
             'lure_id': self.lure_id,
-            'lure_name': locale.get_lure_type_name(self.lure_id),
+            'lure_name': self.lure_name,
 
             # Time left
             'time_left': time[0],
