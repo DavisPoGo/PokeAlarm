@@ -40,6 +40,8 @@ class StopEvent(BaseEvent):
         self.name = self.stop_id
         self.geofence = Unknown.REGULAR
         self.custom_dts = {}
+        self.geofence_list = []
+        self.channel_id = Unknown.REGULAR
 
     def generate_dts(self, locale, timezone, units):
         """ Return a dict with all the DTS for this event. """
@@ -51,7 +53,7 @@ class StopEvent(BaseEvent):
 
             # Lure Type
             'lure_id': self.lure_id,
-            'lure_name': self.lure_name,
+            'lure_name': locale.get_lure_type_name(self.lure_id),
 
             # Time left
             'time_left': time[0],

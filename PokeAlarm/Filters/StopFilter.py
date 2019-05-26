@@ -11,7 +11,7 @@ class StopFilter(BaseFilter):
 
     def __init__(self, mgr, name, data):
         """ Initializes base parameters for a filter. """
-        super(StopFilter, self).__init__(mgr, 'egg', name)
+        super(StopFilter, self).__init__(mgr, 'stop', name)
 
         # Distance
         self.min_dist = self.evaluate_attribute(  # f.min_dist <= m.distance

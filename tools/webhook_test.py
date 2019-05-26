@@ -106,8 +106,9 @@ def set_init(webhook_type):
             "message": {
                 "pokestop_id": current_time,
                 "enabled": "True",
-                "latitude": 37.7876146,
-                "longitude": -122.390624,
+                "latitude": 38.556814,
+                "longitude": -121.725527,
+                "lure_id": 502,
                 "active_fort_modifier": 0
             }
         }
@@ -124,8 +125,8 @@ def set_init(webhook_type):
                 "lowest_pokemon_motivation": 0.8795773983001709,
                 "total_cp": 11099,
                 "enabled": "True",
-                "latitude": 37.7876146,
-                "longitude": -122.390624
+                "latitude": 38.556814,
+                "longitude": -121.725527
             }
         }
     elif webhook_type == whtypes["4"]:
@@ -184,8 +185,8 @@ def set_init(webhook_type):
                 "pokestop_id": current_time,
                 "pokestop_name": "Stop Name",
                 "pokestop_url": "http://placehold.it/500x500",
-                "latitude": 37.7876146,
-                "longitude": -122.390624,
+                "latitude": 38.556814,
+                "longitude": -121.725527,
                 "quest": "Catch 10 Dragonites",
                 "reward": "1 Pidgey",
                 "type": 0
@@ -355,7 +356,7 @@ print "Does location matter or do you use geofences? (Y/N)\n>",
 if raw_input() in truthy:
     regex_coordinates = re.compile(
         r"[-+]?[0-9]*\.?[0-9]*" + r"[ \t]*,[ \t]*" + r"[-+]?[0-9]*\.?[0-9]*")
-    print "Enter latitude,longitude (Ex. 37.7876146,-122.390624)\n>",
+    print "Enter latitude,longitude (Ex. 38.556814,-121.725527)\n>",
     coordinates = raw_input()
     lat = payload["message"]["latitude"]
     lng = payload["message"]["longitude"]
